@@ -1,0 +1,25 @@
+.fetching {
+  margin: 2px;
+  padding-left: 20px;
+
+  font-style: italic;
+  /* reuse the tabbrowser spinner */
+  background-image: url(chrome://browser/skin/tabbrowser/pendingpaint.png);
+  background-repeat: no-repeat;
+  background-position: left;
+  background-size: 15px;
+}
+
+.collectionLastModified {
+  font-size: 50%;
+}
+
+#account-info {
+  border: 2px solid black;
+  padding: 5px;
+}
+
+.profileImage {
+  max-width: 60px;
+  border-radius: 50%;
+}
