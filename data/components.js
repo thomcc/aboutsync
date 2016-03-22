@@ -149,6 +149,21 @@ class CollectionsViewer extends React.Component {
   }
 }
 
+// The "header" for a collection - info above the detail tabs.
+class CollectionHeader extends React.Component {
+  render() {
+    let lastModified = new Date(this.props.parent.props.lastModified);
+    let name = this.props.parent.props.name;
+    return (
+      React.createElement("div", { className: "collection-header" },
+        React.createElement("span", null, name),
+        React.createElement("span", { className: "collectionLastModified" }, " last modified at "),
+        React.createElement("span", { className: "collectionLastModified" }, lastModified.toString())
+      )
+    )
+  }
+}
+
 // Renders a single collection
 class CollectionViewer extends React.Component {
   constructor(props) {
@@ -173,25 +188,25 @@ class CollectionViewer extends React.Component {
   }
 
   render() {
-    let details;
+    let details = [React.createElement(CollectionHeader, { parent: this })];
     if (this.state.records === undefined) {
-      details = [React.createElement(Fetching)];
+      details.push(React.createElement(Fetching));
     } else {
-      details = [
-        React.createElement(ResponseViewer, { response: this.state.response }),
-        React.createElement(ObjectInspector, { name: this.props.name, data: this.state.records })
+      let tabs = [
+        React.createElement(ReactSimpleTabs.Panel, { title: "Response" },
+                            React.createElement(ResponseViewer, { response: this.state.response })),
+        React.createElement(ReactSimpleTabs.Panel, { title: "Records" },
+                            React.createElement(ObjectInspector, { name: this.props.name, data: this.state.records })),
       ];
       let summaryBuilder = summaryBuilders[this.props.name];
       if (summaryBuilder) {
-        details.push(React.createElement(ObjectInspector, { name: "summary", data: summaryBuilder(this.state.records) }));
+        tabs.push(React.createElement(ReactSimpleTabs.Panel, { title: "Summary" },
+                                      React.createElement(ObjectInspector, { name: "summary", data: summaryBuilder(this.state.records) })));
       }
+      details.push(React.createElement(ReactSimpleTabs, null, tabs));
     }
 
-    let lastModified = new Date(this.props.lastModified);
-    return React.createElement("div", null,
-      React.createElement("span", null, this.props.name),
-      React.createElement("span", { className: "collectionLastModified" }, " last modified at "),
-      React.createElement("span", { className: "collectionLastModified" }, lastModified.toString()),
+    return React.createElement("div", { className: "collection" },
       ...details
     );
   }
