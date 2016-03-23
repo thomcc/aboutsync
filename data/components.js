@@ -37,6 +37,10 @@ function createObjectInspector(name, data) {
   return React.createElement(ReactInspector.ObjectInspector, {name, data, expandLevel: 1 });
 }
 
+function createTableInspector(data) {
+  return React.createElement(ReactInspector.TableInspector, { data });
+}
+
 // A placeholder for when we are still fetching data.
 // Needs a spinner or something :)
 class Fetching extends React.Component {
@@ -200,7 +204,7 @@ class CollectionViewer extends React.Component {
         React.createElement(ReactSimpleTabs.Panel, { title: "Response" },
                             React.createElement(ResponseViewer, { response: this.state.response })),
         React.createElement(ReactSimpleTabs.Panel, { title: "Records" },
-                            createObjectInspector(this.props.name, this.state.records)),
+                            createTableInspector(this.state.records)),
       ];
       let summaryBuilder = summaryBuilders[this.props.name];
       if (summaryBuilder) {
