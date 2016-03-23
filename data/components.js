@@ -96,18 +96,64 @@ class ResponseViewer extends React.Component {
   }
 }
 
-// Functions that compute a "summary" object for a collection.
+// Functions that compute a "summary" object for a collection. Returns an
+// object with key=name, value=react component.
 const summaryBuilders = {
   bookmarks(records) {
-    let result = {deleted: 0};
-    for (let record of records) {
+    // Build a tree representation of the remote bookmarks.
+    let seen = new Map();
+    let roots = new Map();
+    let deleted = new Set();
+    for (record of records) {
       if (record.deleted) {
-        result.deleted ++;
+        deleted.add(record.id);
+        continue;
+      }
+      let me = seen.get(record.id);
+      if (me) {
+        // My entry might already exist as it was seen as a parent - in which
+        // case it shouldn't already have a record.
+        if (me.record) {
+          console.error("Oh no - I've seen myself before", record);
+        }
+        me.record = record;
+      } else {
+        me = { id: record.id, children: [], record };
+        seen.set(record.id, me);
+      }
+      let parent = seen.get(record.parentid);
+      if (!parent) {
+        // We seen a child before we've seen the parent.
+        parent = { id: record.parentid, children: [], record: null };
+        seen.set(record.parentid, parent);
+      }
+      parent.children.push(me);
+      if (record.parentid == "places") {
+        roots.set(record.id, me);
       }
     }
-    // todo: orphans etc???
-    return result;
-  }
+    // When all you have is a hammer... Turn it into something for ObjectInspector
+    let map2obj = map => {
+      let result = {};
+      map.forEach((val, key) => result[key] = val);
+      return result;
+    }
+    let data = {
+      bookmarks: map2obj(roots),
+      deleted: [for (k of deleted.keys()) k],
+      orphans: {},
+    };
+    // find orphans
+    for (let [key, value] of seen) {
+      if (!value.record) {
+        data.orphans[value.id] = value;
+      }
+    }
+    return {
+      "Remote Tree": createObjectInspector("Remote Tree", data),
+    };
+  },
+
 }
 
 // Renders all collections.
@@ -208,8 +254,11 @@ class CollectionViewer extends React.Component {
       ];
       let summaryBuilder = summaryBuilders[this.props.name];
       if (summaryBuilder) {
-        tabs.push(React.createElement(ReactSimpleTabs.Panel, { title: "Summary" },
-                                      createObjectInspector("summary", summaryBuilder(this.state.records))));
+        let summaries = summaryBuilder(this.state.records);
+        for (let title in summaries) {
+          let elt = summaries[title];
+          tabs.push(React.createElement(ReactSimpleTabs.Panel, { title }, elt));
+        }
       }
       details.push(React.createElement(ReactSimpleTabs, null, tabs));
     }
