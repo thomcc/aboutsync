@@ -33,6 +33,10 @@ function whenSyncReady() {
   });
 }
 
+function createObjectInspector(name, data) {
+  return React.createElement(ReactInspector.ObjectInspector, {name, data, expandLevel: 1 });
+}
+
 // A placeholder for when we are still fetching data.
 // Needs a spinner or something :)
 class Fetching extends React.Component {
@@ -67,7 +71,7 @@ class AccountInfo extends React.Component {
     if (this.state.profile) {
       let profile = this.state.profile;
       tail.push(React.createElement('img', { src: profile.avatar, className: "profileImage" }));
-      tail.push(React.createElement(ObjectInspector, {name: "Full Profile", data: profile }));
+      tail.push(createObjectInspector("Full Profile", profile));
     }
 
     return (
@@ -84,7 +88,7 @@ class ResponseViewer extends React.Component {
     let response = this.props.response;
     let data = { url: response.url, status: response.status,
                  success: response.success, headers: response.headers };
-    return React.createElement(ObjectInspector, { name: "Response", data });
+    return createObjectInspector("Response", data);
   }
 }
 
@@ -196,12 +200,12 @@ class CollectionViewer extends React.Component {
         React.createElement(ReactSimpleTabs.Panel, { title: "Response" },
                             React.createElement(ResponseViewer, { response: this.state.response })),
         React.createElement(ReactSimpleTabs.Panel, { title: "Records" },
-                            React.createElement(ObjectInspector, { name: this.props.name, data: this.state.records })),
+                            createObjectInspector(this.props.name, this.state.records)),
       ];
       let summaryBuilder = summaryBuilders[this.props.name];
       if (summaryBuilder) {
         tabs.push(React.createElement(ReactSimpleTabs.Panel, { title: "Summary" },
-                                      React.createElement(ObjectInspector, { name: "summary", data: summaryBuilder(this.state.records) })));
+                                      createObjectInspector("summary", summaryBuilder(this.state.records))));
       }
       details.push(React.createElement(ReactSimpleTabs, null, tabs));
     }
@@ -257,7 +261,7 @@ class MetaResourceViewer extends React.Component {
     }
     return React.createElement("div", null,
       React.createElement("span", null, this.props.name),
-      React.createElement(ObjectInspector, { data: obj })
+      React.createElement(ReactInspector.ObjectInspector, { data: obj })
     );
   }
 }
