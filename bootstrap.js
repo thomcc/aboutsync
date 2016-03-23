@@ -33,7 +33,8 @@ function loadIntoWindow(window) {
   menuItem.setAttribute("label", "About Sync");
   menuItem.addEventListener("command", function(event) {
     let win = event.target.ownerDocument.defaultView;
-    win.gBrowser.addTab(INDEX_HTML, { forceNotRemote: true });
+    let tab = win.gBrowser.addTab(INDEX_HTML, { forceNotRemote: true });
+    win.gBrowser.selectedTab = tab;
   }, true);
   let menu = window.document.getElementById("menu_ToolsPopup");
   if (!menu) {
