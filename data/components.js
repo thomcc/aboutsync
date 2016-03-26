@@ -101,54 +101,88 @@ class ResponseViewer extends React.Component {
 const summaryBuilders = {
   bookmarks(records) {
     // Build a tree representation of the remote bookmarks.
-    let seen = new Map();
-    let roots = new Map();
+    let problems = [];
     let deleted = new Set();
-    for (record of records) {
-      if (record.deleted) {
-        deleted.add(record.id);
-        continue;
-      }
-      let me = seen.get(record.id);
+
+    let root = {
+      id: "<root>",
+      record: null,
+      children: [
+        { id: "orphans", children: [] },
+        { id: "places", children: [] },
+        { id: "<deleted>", children: [] },
+      ]
+    };
+    let seen = new Map();
+    for (let child of root.children) {
+      seen.set(child.id, child);
+    }
+
+    function makeItem(id, record) {
+      let me = seen.get(id);
       if (me) {
         // My entry might already exist as it was seen as a parent - in which
         // case it shouldn't already have a record.
-        if (me.record) {
-          console.error("Oh no - I've seen myself before", record);
+        if (record) {
+          if (me.record) {
+            problems.push(`Record ${id} appears processed twice`);
+          }
+          me.record = record;
+        } else {
+          // We're an item that was previously created - either due to seeing
+          // the item itself, or due to being a parent we hadn't seen at the
+          // time it was created.
+          // If the latter we must have seen at least 1 child before.
+          if (!me.record && !me.children.length) {
+            // *sob* - our artificial children of the root hit this.
+            if ([for (c of root.children) c.id].indexOf(id) == -1) {
+              problems.push(`Record ${id} is an existing parent without children`);
+            }
+          }
         }
-        me.record = record;
       } else {
-        me = { id: record.id, children: [], record };
-        seen.set(record.id, me);
+        me = { id: id, children: [], record };
+        seen.set(id, me);
       }
-      let parent = seen.get(record.parentid);
-      if (!parent) {
-        // We seen a child before we've seen the parent.
-        parent = { id: record.parentid, children: [], record: null };
-        seen.set(record.parentid, parent);
+
+      // now parent the item up.
+      if (record) {
+        // We've got a real parentid (but not the record), so re-parent.
+        let newParent = makeItem(record.parentid, null);
+        if (newParent != me.parent) {
+          if (me.parent) {
+            // oh js, yu no have Array.remove()
+            me.parent.children.splice(me.parent.children.indexOf(me), 1);
+          }
+          me.parent = newParent;
+        }
+        me.parent.children.push(me);
+      } else {
+        if (!me.parent) {
+          // We created an item and we don't know its parent - parent it as
+          // an orphan.
+          me.parent = seen.get("orphans");
+          me.parent.children.push(me);
+        }
       }
-      parent.children.push(me);
-      if (record.parentid == "places") {
-        roots.set(record.id, me);
-      }
+      return me;
     }
+
+    for (let record of records) {
+      if (record.deleted) {
+        // cheat for deleted items - this treats them as "normal" items, so
+        // allows us to detect items that have a deleted item as a parent
+        // (which would be bad!)
+        record.parentid = "<deleted>";
+      }
+      makeItem(record.id, record);
+    }
+
     // When all you have is a hammer... Turn it into something for ObjectInspector
-    let map2obj = map => {
-      let result = {};
-      map.forEach((val, key) => result[key] = val);
-      return result;
-    }
     let data = {
-      bookmarks: map2obj(roots),
-      deleted: [for (k of deleted.keys()) k],
-      orphans: {},
+      root,
+      problems,
     };
-    // find orphans
-    for (let [key, value] of seen) {
-      if (!value.record) {
-        data.orphans[value.id] = value;
-      }
-    }
     return {
       "Remote Tree": createObjectInspector("Remote Tree", data),
     };
