@@ -11,8 +11,18 @@
   </head>
 
   <body>
-    <div id="account-info"></div>
-    <div id="collections-info"></div>
+    <div class="state-container" data-logged-in="unknown">
+      <div class="state-child state-child-unknown">
+        <p class="fetching">Fetching account...</p>
+      </div>
+      <div class="state-child state-child-false">
+        You must <a href="about:preferences#sync" target="_blank">log in</a> to view about-sync
+      </div>
+      <div class="state-child state-child-true">
+        <div id="account-info"></div>
+        <div id="collections-info"></div>
+      </div>
+    </div>
     <script type="text/javascript;version=1.7" src="components.js"></script>
   </body>
 </html>

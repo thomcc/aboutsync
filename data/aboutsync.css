@@ -1,3 +1,24 @@
+html {
+  font-family: "verdana";
+  font-size: 12px;
+}
+
+.state-child {
+  display: none;
+}
+
+.state-container[data-logged-in="unknown"] .state-child-unknown {
+  display: unset;
+}
+
+.state-container[data-logged-in="true"] .state-child-true {
+  display: unset;
+}
+
+.state-container[data-logged-in="false"] .state-child-false {
+  display: unset;
+}
+
 .fetching {
   margin: 2px;
   padding-left: 20px;
@@ -11,11 +32,17 @@
 }
 
 .collectionLastModified {
-  font-size: 50%;
+  font-size: 70%;
+}
+
+.collectionSummary {
+  margin-top: 2px;
+  margin-bottom: 2px;
+  font-size: 70%;
 }
 
 #account-info {
-  border: 2px solid black;
+  background: #eaeff2;
   padding: 5px;
 }
 
@@ -27,6 +54,7 @@
 .collection {
   border-top: 1px solid gray;
   padding-top: 3px;
+  min-height: 70px;
 }
 
 /* =============================================================================
@@ -35,7 +63,7 @@
 .bookmark-description {
   margin-top: 0px;
   margin-bottom: 0px;
-  font-size: small;
+  font-size: 70%;
   color: gray;
 }
 
@@ -44,7 +72,6 @@
 ============================================================================= */
 
 .tabs {
-  border-bottom: 1px solid gray;
   padding-bottom: 6px;
 }
 
@@ -63,6 +90,7 @@
 
 .tabs-menu-item {
   float: left;
+  font-size: 70%;
 }
 
 .tabs-menu-item a {
@@ -70,16 +98,16 @@
   padding: 0 40px;
   border-bottom: 0;
   color: #A9A9A9;
+  cursor: pointer;
 }
 
 .tabs-menu-item:not(.is-active) a:hover {
-  color: #3498db;
+  background: #f4f8f9;
 }
 
 .tabs-menu-item.is-active a {
-  background: #fff;
+  background: #eaeff2;
   border: 1px solid #DDD;
-  border-top: 2px solid #3498db;
   border-bottom: 0;
   color: #333;
 }

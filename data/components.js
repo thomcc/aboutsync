@@ -42,10 +42,9 @@ function createTableInspector(data) {
 }
 
 // A placeholder for when we are still fetching data.
-// Needs a spinner or something :)
 class Fetching extends React.Component {
   render() {
-    return React.createElement("p", { className: "fetching" }, "fetching...");
+    return React.createElement("p", { className: "fetching" }, this.props.label);
   }
 }
 
@@ -54,6 +53,7 @@ class AccountInfo extends React.Component {
     super(props);
     this.state = { user: null, profile: null }
   }
+
   componentDidMount() {
     fxAccounts.getSignedInUser().then(data => {
       this.setState({ user: data });
@@ -64,6 +64,7 @@ class AccountInfo extends React.Component {
       }
     }).catch(Cu.reportError);
   }
+
   render() {
     let user;
     if (this.state.user == null) {
@@ -115,6 +116,7 @@ const summaryBuilders = {
     let seen = new Map();
     for (let child of root.children) {
       seen.set(child.id, child);
+      child.parent = root;
     }
 
     function makeItem(id, record) {
@@ -182,13 +184,16 @@ const summaryBuilders = {
       console.log("make tree", depth, node);
       let record = node.record || {};
       label = label || record.title;
+      if (!label && record.deleted) {
+        label = `deleted ${record.type} with id=${record.id}`;
+      }
       if (!label) {
         switch (record.type) {
           case "query":
             label = "query: " + record.bmkUri;
             break;
           default:
-            label = `<${record.type}>`;
+            label = `<Untitled ${record.type}>`;
         }
       }
       let children = [];
@@ -208,79 +213,18 @@ const summaryBuilders = {
       return React.createElement(TreeView, { key: record.id, nodeLabel, defaultCollapsed: false },
                                  ...children);
     }
-    let treeContainer = React.createElement("div", null,
-                          makeTreeFromNode(seen.get("places"), "Bookmarks Tree"),
-                          makeTreeFromNode(seen.get("<deleted>"), "Deleted Items"),
-                          makeTreeFromNode(seen.get("orphans"), "Orphaned Items")
-                        );
+    // mangle <deleted> into a table
+    let deletedTable = seen.get("<deleted>").children.map(child => {
+      return { id: child.id, "num children": child.children.length };
+    });
     // XXX - include "problems" here.
     return {
-      "Remote Tree": treeContainer,
+      "Remote Tree": makeTreeFromNode(seen.get("places"), "Bookmarks Tree"),
+      "Orphaned Items": makeTreeFromNode(seen.get("orphans"), "Orphaned Items"),
+      "Deleted Items": createTableInspector(deletedTable),
     };
   },
 
-}
-
-// Renders all collections.
-class CollectionsViewer extends React.Component {
-  componentDidMount() {
-    whenSyncReady().then(loggedIn => {
-      this.setState({ loggedIn });
-      if (loggedIn) {
-        let info = Weave.Service._fetchInfo();
-        this.setState({ info });
-      }
-    }).catch(Cu.reportError);
-  }
-
-  render() {
-    if (this.state && !this.state.loggedIn) {
-      return React.createElement("p", null, "You must log in to view collections");
-    }
-    if (!this.state || !this.state.info) {
-      return React.createElement(Fetching);
-    }
-
-    let info = this.state.info;
-    let collections = [];
-    for (let name in info.obj) {
-      let lastModified = new Date(info.obj[name]);
-      let url = Weave.Service.storageURL + name;
-      let props = { name, lastModified, url };
-
-      if (name == "crypto" || name == "meta") {
-        // These aren't encrypted "collections" so show them differently
-        collections.push(
-          React.createElement("div", null,
-            React.createElement(MetaResourceViewer, { url, name })
-          )
-        );
-      } else {
-        collections.push(
-          React.createElement(CollectionViewer, props)
-        );
-      }
-    }
-    return React.createElement("div", {foo: "bar"},
-             React.createElement("p", null, "Status: " + info.status),
-             ...collections
-           );
-  }
-}
-
-// The "header" for a collection - info above the detail tabs.
-class CollectionHeader extends React.Component {
-  render() {
-    let lastModified = new Date(this.props.parent.props.lastModified);
-    let name = this.props.parent.props.name;
-    return (
-      React.createElement("div", { className: "collection-header" },
-        React.createElement("span", null, name),
-        React.createElement("span", { className: "collectionLastModified" }, " last modified at "),
-        React.createElement("span", { className: "collectionLastModified" }, lastModified.toString())
-      )
-    )
-  }
 }
 
 // Renders a single collection
@@ -303,20 +247,28 @@ class CollectionViewer extends React.Component {
     Promise.resolve().then(() => {
       let response = collection.get();
       this.setState({ response, records });
-    });
+    }).catch(err => console.error("Failed to fetch collection", err));
   }
 
   render() {
-    let details = [React.createElement(CollectionHeader, { parent: this })];
+    let name = this.props.name;
+    let details = [React.createElement("div", { className: "collection-header" }, name)];
     if (this.state.records === undefined) {
-      details.push(React.createElement(Fetching));
+      details.push(React.createElement(Fetching, { label: "Fetching records..." }));
     } else {
+      // Build up a set of tabs.
+      let lastModified = new Date(this.props.lastModified);
+      // "Summary" tab is first.
+      let summary = React.createElement("div", null,
+                      React.createElement("p", { className: "collectionSummary" }, `${this.state.records.length} records`),
+                      React.createElement("span", { className: "collectionSummary" }, " last modified at "),
+                      React.createElement("span", { className: "collectionSummary" }, lastModified.toString())
+                    );
+
       let tabs = [
-        React.createElement(ReactSimpleTabs.Panel, { title: "Response" },
-                            React.createElement(ResponseViewer, { response: this.state.response })),
-        React.createElement(ReactSimpleTabs.Panel, { title: "Records" },
-                            createTableInspector(this.state.records)),
+        React.createElement(ReactSimpleTabs.Panel, { title: "Summary"}, summary),
       ];
+      // additional per-collection summaries
       let summaryBuilder = summaryBuilders[this.props.name];
       if (summaryBuilder) {
         let summaries = summaryBuilder(this.state.records);
@@ -325,6 +277,15 @@ class CollectionViewer extends React.Component {
           tabs.push(React.createElement(ReactSimpleTabs.Panel, { title }, elt));
         }
       }
+      // and tabs common to all collections.
+      tabs.push(...[
+        React.createElement(ReactSimpleTabs.Panel, { title: "Response" },
+                            React.createElement(ResponseViewer, { response: this.state.response })),
+        React.createElement(ReactSimpleTabs.Panel, { title: "Records (table)" },
+                            createTableInspector(this.state.records)),
+        React.createElement(ReactSimpleTabs.Panel, { title: "Records (object)" },
+                            createObjectInspector("Records", this.state.records)),
+      ]);
       details.push(React.createElement(ReactSimpleTabs, null, tabs));
     }
 
@@ -366,7 +327,7 @@ class MetaResourceViewer extends React.Component {
 
   render() {
     if (!this.state.response) {
-      return React.createElement(Fetching);
+      return React.createElement(Fetching, { label: `Fetching ${this.props.url} ...` });
     }
     let obj = { response: this.state.response };
     for (let name in this.state.children) {
@@ -384,9 +345,99 @@ class MetaResourceViewer extends React.Component {
   }
 }
 
-ReactDOM.render(React.createElement(AccountInfo, null),
-                document.getElementById('account-info')
-);
-ReactDOM.render(React.createElement(CollectionsViewer, null),
-                document.getElementById('collections-info')
-);
+// Drills into info/collections, grabs sub-collections, and renders them
+class CollectionsViewer extends React.Component {
+  componentDidMount() {
+    // Sync's nested event-loop blocking API means we should do the fetch after
+    // an event spin.
+    Promise.resolve().then(() => {
+      let info = Weave.Service._fetchInfo();
+      this.setState({ info });
+    }).catch(err => console.error("App init failed", err));
+  }
+
+  render() {
+    if (!this.state || !this.state.info) {
+      return React.createElement(Fetching, "Fetching collection info...");
+    }
+
+    let info = this.state.info;
+    let collections = [];
+    for (let name of Object.keys(info.obj).sort()) {
+      let lastModified = new Date(info.obj[name]);
+      let url = Weave.Service.storageURL + name;
+      let props = { name, lastModified, url };
+
+      if (name == "crypto" || name == "meta") {
+        // These aren't encrypted "collections" so show them differently
+        collections.push(
+          React.createElement("div", null,
+            React.createElement(MetaResourceViewer, { url, name })
+          )
+        );
+      } else {
+        collections.push(
+          React.createElement(CollectionViewer, props)
+        );
+      }
+    }
+    return React.createElement("div", {foo: "bar"},
+             React.createElement("p", null, "Status: " + info.status),
+             ...collections
+           );
+  }
+}
+
+function render() {
+  // I have no idea what I'm doing re element attribute states :)
+  // data-logged-in is already "unknown"
+  whenSyncReady().then(loggedIn => {
+    for (let elt of document.querySelectorAll(".state-container")) {
+      elt.setAttribute("data-logged-in", loggedIn);
+    }
+    if (!loggedIn) {
+      // the raw html and css has us covered!
+      return;
+    }
+    // render our react nodes
+    ReactDOM.render(React.createElement(AccountInfo, null),
+                    document.getElementById('account-info')
+    );
+
+    ReactDOM.render(React.createElement(CollectionsViewer, null),
+                    document.getElementById('collections-info')
+    );
+  }).catch(err => console.error("render() failed", err));
+}
+
+// An observer that supports weak-refs (but kept alive by the window)
+window.myobserver = {
+  QueryInterface: function(iid) {
+    if (!iid.equals(Ci.nsIObserver) &&
+        !iid.equals(Ci.nsISupportsWeakReference) &&
+        !iid.equals(Ci.nsISupports))
+      throw Cr.NS_ERROR_NO_INTERFACE;
+
+    return this;
+  },
+  observe: function(subject, topic, data) {
+    render();
+  }
+};
+
+function main() {
+  render();
+
+  const topics = [
+    "fxaccounts:onlogin",
+    "fxaccounts:onverified",
+    "fxaccounts:onlogout",
+    "fxaccounts:update",
+    "fxaccounts:profilechange"
+  ];
+  for (let topic of topics) {
+    Services.obs.addObserver(window.myobserver, topic, true);
+  }
+}
+
+main();
