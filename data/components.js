@@ -33,8 +33,8 @@ function whenSyncReady() {
   });
 }
 
-function createObjectInspector(name, data) {
-  return React.createElement(ReactInspector.ObjectInspector, {name, data, expandLevel: 1 });
+function createObjectInspector(name, data, expandLevel = 1) {
+  return React.createElement(ReactInspector.ObjectInspector, {name, data, expandLevel: expandLevel });
 }
 
 function createTableInspector(data) {
@@ -106,7 +106,6 @@ const summaryBuilders = {
 
     let root = {
       id: "<root>",
-      record: null,
       children: [
         { id: "orphans", children: [] },
         { id: "places", children: [] },
@@ -178,13 +177,45 @@ const summaryBuilders = {
       makeItem(record.id, record);
     }
 
-    // When all you have is a hammer... Turn it into something for ObjectInspector
-    let data = {
-      root,
-      problems,
-    };
+    // Make a TreeView DOM element from one of the nodes we build above.
+    function makeTreeFromNode(node, label = null, depth = 1) {
+      console.log("make tree", depth, node);
+      let record = node.record || {};
+      label = label || record.title;
+      if (!label) {
+        switch (record.type) {
+          case "query":
+            label = "query: " + record.bmkUri;
+            break;
+          default:
+            label = `<${record.type}>`;
+        }
+      }
+      let children = [];
+      // Some children that form the "summary"...
+      if (record.description) {
+        children.push(React.createElement("p", { className: "bookmark-description"}, record.description));
+      }
+      let summary = `A ${record.type} with ${node.children.length} children`;
+      children.push(React.createElement("p", { className: "bookmark-description"}, summary));
+      children.push(createObjectInspector("record", record, 0));
+
+      // And children that are sub-trees.
+      let nodeLabel = React.createElement("span", null, label);
+      for (let child of node.children) {
+        children.push(React.createElement("div", null, makeTreeFromNode(child, null, depth + 1)));
+      }
+      return React.createElement(TreeView, { key: record.id, nodeLabel, defaultCollapsed: false },
+                                 ...children);
+    }
+    let treeContainer = React.createElement("div", null,
+                          makeTreeFromNode(seen.get("places"), "Bookmarks Tree"),
+                          makeTreeFromNode(seen.get("<deleted>"), "Deleted Items"),
+                          makeTreeFromNode(seen.get("orphans"), "Orphaned Items")
+                        );
+    // XXX - include "problems" here.
     return {
-      "Remote Tree": createObjectInspector("Remote Tree", data),
+      "Remote Tree": treeContainer,
     };
   },
 
