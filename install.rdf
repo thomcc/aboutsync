@@ -6,7 +6,7 @@
 
     <em:bootstrap>true</em:bootstrap>
     <em:type>2</em:type>
-    <em:id>about-sync@mhammond.github.com</em:id>
+    <em:id>aboutsync@mhammond.github.com</em:id>
     <em:name>About Sync extension for Firefox</em:name>
     <em:version>0.0.1</em:version>
     <em:description>Show information about Firefox Sync.</em:description>
