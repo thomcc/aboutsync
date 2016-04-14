@@ -146,24 +146,26 @@ const summaryBuilders = {
         seen.set(id, me);
       }
 
-      // now parent the item up.
-      if (record) {
-        // We've got a real parentid (but not the record), so re-parent.
-        let newParent = makeItem(record.parentid, null);
-        if (newParent != me.parent) {
-          if (me.parent) {
-            // oh js, yu no have Array.remove()
-            me.parent.children.splice(me.parent.children.indexOf(me), 1);
+      // now parent the item up, unless it's the places root which can stay as is.
+      if (me.id !== 'places') {
+        if (record) {
+          // We've got a real parentid (but not the record), so re-parent.
+          let newParent = makeItem(record.parentid, null);
+          if (newParent != me.parent) {
+            if (me.parent) {
+              // oh js, yu no have Array.remove()
+              me.parent.children.splice(me.parent.children.indexOf(me), 1);
+            }
+            me.parent = newParent;
           }
-          me.parent = newParent;
-        }
-        me.parent.children.push(me);
-      } else {
-        if (!me.parent) {
-          // We created an item and we don't know its parent - parent it as
-          // an orphan.
-          me.parent = seen.get("orphans");
           me.parent.children.push(me);
+        } else {
+          if (!me.parent) {
+            // We created an item and we don't know its parent - parent it as
+            // an orphan.
+            me.parent = seen.get("orphans");
+            me.parent.children.push(me);
+          }
         }
       }
       return me;
