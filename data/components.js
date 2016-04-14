@@ -194,6 +194,9 @@ const summaryBuilders = {
           case "query":
             label = "query: " + record.bmkUri;
             break;
+          case "separator":
+            label = "<Separator>";
+            break;
           default:
             label = `<Untitled ${record.type}>`;
         }
