@@ -222,11 +222,15 @@ const summaryBuilders = {
     let deletedTable = seen.get("<deleted>").children.map(child => {
       return { id: child.id, "num children": child.children.length };
     });
-    // XXX - include "problems" here.
+
     return {
       "Remote Tree": makeTreeFromNode(seen.get("places"), "Bookmarks Tree"),
       "Orphaned Items": makeTreeFromNode(seen.get("orphans"), "Orphaned Items"),
       "Deleted Items": createTableInspector(deletedTable),
+      "Problems": React.createElement('div', null,
+        React.createElement('p', {className: 'collectionSummary'}, `${problems.length} problems detected`),
+        React.createElement('ul', {className: 'problemList'},
+          ...problems.map(p => React.createElement('li', {key: p}, p))))
     };
   },
 
