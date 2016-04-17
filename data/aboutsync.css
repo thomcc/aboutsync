@@ -111,3 +111,66 @@ html {
   border-bottom: 0;
   color: #333;
 }
+
+.table-inspector {
+  font-family: monospace;
+  line-height: 1;
+  border-spacing: 0;
+  border-collapse: collapse;
+  border: 1px solid #ddd;
+}
+
+.table-inspector th, .table-inspector td {
+  border: 1px solid #eee;
+  padding: 0.5em 1em;
+}
+
+.table-inspector thead tr,
+.table-inspector tbody tr:not(.table-inspector-expanded-row) td {
+  max-height: 3em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 10em;
+}
+
+.table-inspector .table-inspector-expanded-row {
+  outline: 1px solid #aaa;
+}
+
+.table-inspector th {
+  border-top: 0;
+}
+
+.table-inspector th:first-child,
+.table-inspector td:first-child {
+  border-left: 0;
+}
+.table-inspector th:last-child,
+.table-inspector td:last-child {
+  border-right: 0;
+}
+
+.table-inspector tbody tr:last-child {
+  border-bottom: 0;
+}
+
+.table-inspector thead {
+  font-weight: normal;
+}
+
+.table-inspector tbody tr:nth-of-type(2n+1) {
+  background-color: #eee;
+}
+
+.table-inspector-string-cell {
+  color: red;
+}
+
+.table-inspector-boolean-cell {
+  color: blue;
+}
+
+.table-inspector-number-cell {
+  color: green;
+}

@@ -38,7 +38,7 @@ function createObjectInspector(name, data, expandLevel = 1) {
 }
 
 function createTableInspector(data) {
-  return React.createElement(ReactInspector.TableInspector, { data });
+  return React.createElement(AboutSyncTableInspector, { data });
 }
 
 // A placeholder for when we are still fetching data.
