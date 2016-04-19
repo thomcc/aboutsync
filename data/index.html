@@ -17,13 +17,30 @@
         <p class="fetching">Fetching account...</p>
       </div>
       <div class="state-child state-child-false">
-        You must <a href="about:preferences#sync" target="_blank">log in</a> to view about-sync
+        You must <a href="about:preferences#sync">log in</a> to view about-sync
       </div>
       <div class="state-child state-child-true">
-        <div id="account-info"></div>
-        <div id="collections-info"></div>
+        <div class="header">
+          <div>
+            <p>Firefox Account</p>
+            <div id="account-info"></div>
+          </div>
+
+          <div>
+            <p>Sync Info</p>
+            <div>
+              <div id="opensyncprefs"></div>
+              <div id="logfiles-info"></div>
+            </div>
+          </div>
+        </div>
+        <div class="section">
+          <span class="section-heading">Collections</span>
+          <div id="collections-info"></div>
+        </div>
       </div>
     </div>
     <script type="text/javascript;version=1.7" src="components.js"></script>
+    <script type="text/javascript;version=1.7" src="config.js"></script>
   </body>
 </html>

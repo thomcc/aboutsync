@@ -1,8 +1,9 @@
 html {
-  font-family: "verdana";
+  font: message-box;
   font-size: 12px;
 }
 
+/* .state-* selectors for the state of the Firefox Account */
 .state-child {
   display: none;
 }
@@ -31,6 +32,34 @@ html {
   background-size: 15px;
 }
 
+.header {
+  display: flex;
+  background: #eaeff2;
+  padding: 5px;
+}
+
+.header > div {
+  margin: 10px;
+  flex-basis: 50%;
+  flex-grow: 1;
+  display: inline-block;
+}
+
+.header > div > p {
+  font-weight: bold;
+  font-size: larger;
+}
+
+.section-heading {
+  font-weight: bold;
+  font-size: larger;
+}
+
+.section {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
 .collectionLastModified {
   font-size: 70%;
 }
@@ -41,14 +70,23 @@ html {
   font-size: 70%;
 }
 
-#account-info {
-  background: #eaeff2;
-  padding: 5px;
+.profileContainer {
+  display: flex;
 }
 
-.profileImage {
+.avatarContainer,
+.userInfoContainer {
+  display: inline-block;
+}
+
+.avatar {
+  margin: 10px;
   max-width: 60px;
   border-radius: 50%;
+}
+
+.logLevel > select {
+  margin-left: 10px;
 }
 
 .collection {

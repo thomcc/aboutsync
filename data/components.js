@@ -41,6 +41,34 @@ function createTableInspector(data) {
   return React.createElement(AboutSyncTableInspector, { data });
 }
 
+// A tab-smart "anchor"
+class InternalAnchor extends React.Component {
+  onClick(event) {
+    // Get the chrome (ie, browser) window hosting this content.
+    let chromeWindow = window
+         .QueryInterface(Ci.nsIInterfaceRequestor)
+         .getInterface(Ci.nsIWebNavigation)
+         .QueryInterface(Ci.nsIDocShellTreeItem)
+         .rootTreeItem
+         .QueryInterface(Ci.nsIInterfaceRequestor)
+         .getInterface(Ci.nsIDOMWindow)
+         .wrappedJSObject;
+    chromeWindow.switchToTabHavingURI(this.props.href, true, {
+      replaceQueryString: true,
+      ignoreFragment: true,
+    });
+    event.preventDefault();
+  }
+
+  render() {
+    return React.createElement("a",
+                               { href: this.props.href,
+                                 onClick: event => this.onClick(event),
+                               },
+                               this.props.children);
+  }
+}
+
 // A placeholder for when we are still fetching data.
 class Fetching extends React.Component {
   render() {
@@ -66,24 +94,30 @@ class AccountInfo extends React.Component {
   }
 
   render() {
-    let user;
-    if (this.state.user == null) {
-      user = "no user logged in";
-    } else {
-      user = this.state.user.email;
+    let user = this.state.user;
+    if (!user) {
+      return React.createElement(Fetching, { label: "Fetching account info..." });
     }
-    let tail = [];
+    let avatar = [];
+    let info = [];
+    let raw = [];
     if (this.state.profile) {
       let profile = this.state.profile;
-      tail.push(React.createElement('img', { src: profile.avatar, className: "profileImage" }));
-      tail.push(createObjectInspector("Full Profile", profile));
+      avatar.push(React.createElement('img', { src: profile.avatar, className: "avatar" }));
+      info.push(React.createElement('p', null, profile.displayName));
+      raw.push(createObjectInspector("Full Profile", profile, 0));
     }
+    info.push(React.createElement('p', null, user.email));
 
     return (
-      React.createElement('div', null,
-        React.createElement('p', null, user),
-        ...tail
-      ));
+      React.createElement('div', null, [
+        React.createElement('div', { className: "profileContainer" }, [
+          React.createElement('div', { className: "avatarContainer" }, ...avatar),
+          React.createElement('div', { className: "userInfoContainer" }, ...info),
+        ]),
+        ...raw,
+      ])
+    );
   }
 }
 
@@ -402,6 +436,17 @@ function render() {
     // render our react nodes
     ReactDOM.render(React.createElement(AccountInfo, null),
                     document.getElementById('account-info')
+    );
+
+    ReactDOM.render(React.createElement(LogFilesComponent, null),
+                    document.getElementById('logfiles-info')
+    );
+
+    ReactDOM.render(
+      React.createElement(InternalAnchor,
+                          { href: "about:preferences#sync"},
+                          "Open Sync Preferences"),
+      document.getElementById('opensyncprefs')
     );
 
     ReactDOM.render(React.createElement(CollectionsViewer, null),

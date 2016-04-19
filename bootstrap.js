@@ -2,6 +2,7 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/AddonManager.jsm");
+Cu.import("resource://gre/modules/Preferences.jsm");
 
 const INDEX_HTML = "chrome://aboutsync/content/index.html";
 
@@ -77,6 +78,55 @@ function prefObserver(subject, topic, data) {
   }
 }
 
+/* A facility for this addon to "persist" certain preferences across
+   Sync resets.
+
+   In general, these preferences are exposed in the addon's UI - but the
+   preference must live here so that it works even when the addon's UI isn't
+   open.
+*/
+const PREF_RESTORE_TOPICS = [
+  "weave:service:start-over",
+  "weave:service:start-over:finish",
+];
+
+const PREFS_TO_RESTORE = [
+  "services.sync.log.appender.file.level",
+  "services.sync.log.appender.dump",
+  "services.sync.log.appender.file.logOnSuccess",
+];
+
+let savedPrefs = null;
+// The observer for the notifications Sync sends as it resets.
+function startoverObserver(subject, topic, data) {
+  if (!Preferences.get("extensions.aboutsync.applyOnStartOver")) {
+    log("Sync is being reset, but aboutsync is not configured to restore prefs.");
+    return;
+  }
+  switch (topic) {
+    case "weave:service:start-over":
+      // Sync is about to reset all its prefs - save them.
+      log("Sync is starting over - saving pref values to restore");
+      savedPrefs = {};
+      for (let pref of PREFS_TO_RESTORE) {
+        savedPrefs[pref] = Preferences.get(pref);
+      }
+      break;
+
+    case "weave:service:start-over:finish":
+      // Sync has completed resetting its world.
+      log("Sync startover is complete - restoring pref values");
+      for (let pref of Object.keys(savedPrefs)) {
+        Preferences.set(pref, savedPrefs[pref]);
+      }
+      savedPrefs = null;
+      break;
+
+    default:
+      log("unexpected topic", topic);
+  }
+}
+
 /*
  * Extension entry points
  */
@@ -84,8 +134,12 @@ function startup(data, reason) {
   log("starting up");
   // Watch for prefs we care about.
   Services.prefs.addObserver(PREF_VERBOSE, prefObserver, false);
-  // And ensure initial values are picked up.
+  // Ensure initial values are picked up.
   prefObserver(null, "", PREF_VERBOSE);
+  // Setup our "pref restorer"
+  for (let topic of PREF_RESTORE_TOPICS) {
+    Services.obs.addObserver(startoverObserver, topic, false);
+  }
 
   // Load into any existing windows
   let windows = Services.wm.getEnumerator("navigator:browser");
@@ -120,6 +174,10 @@ function shutdown(data, reason) {
     }
   }
   Services.prefs.removeObserver(PREF_VERBOSE, prefObserver);
+
+  for (let topic of PREF_RESTORE_TOPICS) {
+    Services.obs.removeObserver(startoverObserver, topic);
+  }
 }
 
 function install(data, reason) {}
