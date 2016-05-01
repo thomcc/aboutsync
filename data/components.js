@@ -3,7 +3,6 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/FxAccounts.jsm");
 Cu.import("resource://services-sync/main.js");
-Cu.import("resource://services-sync/record.js");
 
 const weaveService = Cc["@mozilla.org/weave/service;1"]
                      .getService(Ci.nsISupports)
@@ -118,16 +117,6 @@ class AccountInfo extends React.Component {
         ...raw,
       ])
     );
-  }
-}
-
-// Renders a response
-class ResponseViewer extends React.Component {
-  render() {
-    let response = this.props.response;
-    let data = { url: response.url, status: response.status,
-                 success: response.success, headers: response.headers };
-    return createObjectInspector("Response", data);
   }
 }
 
@@ -269,29 +258,20 @@ class CollectionViewer extends React.Component {
   }
 
   componentDidMount() {
-    let collection = new Collection(this.props.url, CryptoWrapper, Weave.Service);
-    collection.full = true;
-    let records = [];
-    let key = Weave.Service.collectionKeys.keyForCollection(this.props.name);
-    collection.recordHandler = record => {
-      record.decrypt(key)
-      records.push(record.cleartext);
-    }
-    // Do the actual fetch after an event spin.
-    Promise.resolve().then(() => {
-      let response = collection.get();
+    this.props.provider.promiseCollection(this.props.info).then(result => {
+      let { response, records} = result;
       this.setState({ response, records });
     }).catch(err => console.error("Failed to fetch collection", err));
   }
 
   render() {
-    let name = this.props.name;
+    let name = this.props.info.name;
     let details = [React.createElement("div", { className: "collection-header" }, name)];
     if (this.state.records === undefined) {
       details.push(React.createElement(Fetching, { label: "Fetching records..." }));
     } else {
       // Build up a set of tabs.
-      let lastModified = new Date(this.props.lastModified);
+      let lastModified = new Date(this.props.info.lastModified);
       // "Summary" tab is first.
       let summary = React.createElement("div", null,
                       React.createElement("p", { className: "collectionSummary" }, `${this.state.records.length} records`),
@@ -303,7 +283,7 @@ class CollectionViewer extends React.Component {
         React.createElement(ReactSimpleTabs.Panel, { title: "Summary"}, summary),
       ];
       // additional per-collection summaries
-      let summaryBuilder = summaryBuilders[this.props.name];
+      let summaryBuilder = summaryBuilders[name];
       if (summaryBuilder) {
         let summaries = summaryBuilder(this.state.records);
         for (let title in summaries) {
@@ -314,7 +294,7 @@ class CollectionViewer extends React.Component {
       // and tabs common to all collections.
       tabs.push(...[
         React.createElement(ReactSimpleTabs.Panel, { title: "Response" },
-                            React.createElement(ResponseViewer, { response: this.state.response })),
+                            createObjectInspector("Response", this.state.response)),
         React.createElement(ReactSimpleTabs.Panel, { title: "Records (table)" },
                             createTableInspector(this.state.records)),
         React.createElement(ReactSimpleTabs.Panel, { title: "Records (object)" },
@@ -329,98 +309,196 @@ class CollectionViewer extends React.Component {
   }
 }
 
-// Renders a "meta" resource - where the top-level response indicates what
-// sub-resources are available (eg, meta/ or crypto/)
-class MetaResourceViewer extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {};
+// Drills into info/collections, grabs sub-collections, and renders them
+class CollectionsViewer extends React.Component {
+  componentWillReceiveProps(nextProps) {
+    this.setState( {info: null });
+    this._updateCollectionInfo(nextProps.provider);
   }
 
   componentDidMount() {
-    let req = Weave.Service.resource(this.props.url);
-    // Do the actual fetch after an event spin.
-    Promise.resolve().then(() => {
-      let response = req.get();
-      // populate the names of the children first so we render the names
-      // but with "fetching" for them.
-      let children = {};
-      for (let childName of response.obj) {
-        children[childName] = null;
-      }
-      this.setState({ response, children }, () => {
-        // OK, we've rendered the initial list, now fetch children.
-        for (let childName of response.obj) {
-          let childReq = Weave.Service.resource(this.props.url + "/" + childName);
-          children[childName] = childReq.get();
-        }
-        this.setState({ children });
-      });
+    this._updateCollectionInfo(this.props.provider);
+  }
+
+  _updateCollectionInfo(provider) {
+    provider.promiseCollectionInfo().then(info => {
+      this.setState({ info, error: null });
+    }).catch(err => {
+      console.error("Collection viewer failed", err);
+      this.setState({ error: err });
     });
   }
 
   render() {
-    if (!this.state.response) {
-      return React.createElement(Fetching, { label: `Fetching ${this.props.url} ...` });
+    if (this.state && this.state.error) {
+      return React.createElement("div", null,
+               React.createElement("p", null, "Failed to load collection: " + this.state.error)
+             );
     }
-    let obj = { response: this.state.response };
-    for (let name in this.state.children) {
-      let details;
-      if (!this.state.children[name]) {
-        obj[name] = "Fetching...";
-      } else {
-        obj[name] = JSON.parse(this.state.children[name].obj.payload);
-      }
-    }
-    return React.createElement("div", null,
-      React.createElement("span", null, this.props.name),
-      React.createElement(ReactInspector.ObjectInspector, { data: obj })
-    );
-  }
-}
 
-// Drills into info/collections, grabs sub-collections, and renders them
-class CollectionsViewer extends React.Component {
-  componentDidMount() {
-    // Sync's nested event-loop blocking API means we should do the fetch after
-    // an event spin.
-    Promise.resolve().then(() => {
-      let info = Weave.Service._fetchInfo();
-      this.setState({ info });
-    }).catch(err => console.error("App init failed", err));
-  }
-
-  render() {
     if (!this.state || !this.state.info) {
       return React.createElement(Fetching, "Fetching collection info...");
     }
 
+    let provider = this.props.provider;
     let info = this.state.info;
     let collections = [];
-    for (let name of Object.keys(info.obj).sort()) {
-      let lastModified = new Date(info.obj[name]);
-      let url = Weave.Service.storageURL + name;
-      let props = { name, lastModified, url };
 
-      if (name == "crypto" || name == "meta") {
-        // These aren't encrypted "collections" so show them differently
-        collections.push(
-          React.createElement("div", null,
-            React.createElement(MetaResourceViewer, { url, name })
-          )
-        );
-      } else {
-        collections.push(
-          React.createElement(CollectionViewer, props)
-        );
+    for (let collection of info.collections) {
+      // We skip these 2 collections as they aren't encrypted so must be
+      // rendered differently, and aren't particularly interesting.
+      if (collection.name == "crypto" || collection.name == "meta") {
+        continue;
       }
+      collections.push(
+        React.createElement(CollectionViewer, { provider, info: collection })
+      );
     }
-    return React.createElement("div", {foo: "bar"},
+    return React.createElement("div", null,
              React.createElement("p", null, "Status: " + info.status),
              ...collections
            );
   }
 }
+
+// Options for what "provider" is used.
+class ProviderOptions extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      local: ProviderState.useLocalProvider,
+      url: ProviderState.url,
+    };
+  }
+
+  componentWillUpdate(nextProps, nextState) {
+    ProviderState.useLocalProvider = nextState.local;
+    ProviderState.url = nextState.url;
+  }
+
+  render() {
+    let onLocalClick = event => {
+      this.setState({ local: true });
+    };
+    let onExternalClick = event => {
+      this.setState({ local: false });
+    };
+    let onChooseClick = () => {
+      const nsIFilePicker = Ci.nsIFilePicker;
+      let titleText = "Select local file";
+      let fp = Cc["@mozilla.org/filepicker;1"].createInstance(nsIFilePicker);
+      let fpCallback = result => {
+        if (result == nsIFilePicker.returnOK) {
+          this.setState({ url: fp.fileURL.spec })
+        }
+      }
+      fp.init(window, titleText, nsIFilePicker.modeOpen);
+      fp.appendFilters(nsIFilePicker.filterAll);
+      fp.open(fpCallback);
+    }
+    let onInputChange = event => {
+      this.setState({ url: event.target.value });
+    }
+
+    let local =
+      React.createElement("p", null,
+        React.createElement("input", { type: "radio", checked: this.state.local, onClick: onLocalClick }),
+        React.createElement("span", null, "Load local Sync data")
+      );
+    let file =
+      React.createElement("p", null,
+        React.createElement("input", { type: "radio", checked: !this.state.local, onClick: onExternalClick }),
+        React.createElement("span", null, "Load JSON from url"),
+        React.createElement("span", { className: "provider-extra", hidden: this.state.local },
+          React.createElement("input", { value: this.state.url, onChange: onInputChange }),
+          React.createElement("button", {onClick: onChooseClick }, "Choose local file...")
+        )
+      );
+    return React.createElement("div", null, local, file);
+  }
+}
+
+
+class ProviderInfo extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { provider: ProviderState.newProvider() };
+  }
+
+  render() {
+    let onLoadClick = () => {
+      this.setState({ provider: ProviderState.newProvider() });
+    }
+
+    let onExportClick = () => {
+      const nsIFilePicker = Ci.nsIFilePicker;
+      let titleText = "Select name to export the JSON data to";
+      let fp = Cc["@mozilla.org/filepicker;1"].createInstance(nsIFilePicker);
+      let fpCallback = result => {
+        if (result == nsIFilePicker.returnOK || result == nsIFilePicker.returnReplace) {
+          let filename = fp.file.QueryInterface(Ci.nsILocalFile).path;
+          this.state.provider.promiseExport(filename).then(() => {
+            alert("File created");
+          }).catch(err => {
+            console.error("Failed to create file", err);
+            alert("Failed to create file: " + err);
+          });
+        }
+      }
+
+      fp.init(window, titleText, nsIFilePicker.modeSave);
+      fp.appendFilters(nsIFilePicker.filterAll);
+      fp.open(fpCallback);
+    }
+
+    ReactDOM.render(React.createElement(CollectionsViewer, { provider: this.state.provider }),
+                    document.getElementById('collections-info'));
+
+    let providerIsLocal = this.state.provider.type == "local";
+
+    return React.createElement("fieldset", null,
+             React.createElement("legend", null, "Data provider options"),
+             React.createElement(ProviderOptions, null),
+             React.createElement("button", { onClick: onLoadClick }, "Load"),
+             React.createElement("button", { onClick: onExportClick, hidden: !providerIsLocal }, "Export to file...")
+           );
+  }
+}
+
+// I'm sure this is very un-react-y - I'm just not sure how it should be done.
+let ProviderState = {
+  newProvider() {
+    if (this.useLocalProvider) {
+      return new Providers.LocalProvider();
+    }
+    return new Providers.JSONProvider(this.url);
+  },
+
+  get useLocalProvider() {
+    try {
+      return Services.prefs.getBoolPref("extensions.aboutsync.localProvider");
+    } catch (_) {
+      return true;
+    }
+  },
+
+  set useLocalProvider(should) {
+    Services.prefs.setBoolPref("extensions.aboutsync.localProvider", should);
+  },
+
+  get url() {
+    try {
+      return Services.prefs.getCharPref("extensions.aboutsync.providerURL");
+    } catch (_) {
+      return "";
+    }
+  },
+
+  set url(url) {
+    Services.prefs.setCharPref("extensions.aboutsync.providerURL", url);
+  },
+}
+
 
 function render() {
   // I have no idea what I'm doing re element attribute states :)
@@ -449,8 +527,8 @@ function render() {
       document.getElementById('opensyncprefs')
     );
 
-    ReactDOM.render(React.createElement(CollectionsViewer, null),
-                    document.getElementById('collections-info')
+    ReactDOM.render(React.createElement(ProviderInfo, null),
+                    document.getElementById('provider-info')
     );
   }).catch(err => console.error("render() failed", err));
 }
