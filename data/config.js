@@ -1,6 +1,5 @@
 // Components and other code for managing the friendlier Sync prefs management
 // offered by this addon.
-Cu.import("resource://gre/modules/Task.jsm");
 Cu.import("resource://gre/modules/Log.jsm");
 Cu.import("resource://gre/modules/Preferences.jsm");
 Cu.import("resource://gre/modules/FileUtils.jsm");

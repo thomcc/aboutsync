@@ -3,6 +3,7 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/FxAccounts.jsm");
 Cu.import("resource://services-sync/main.js");
+Cu.import("resource://gre/modules/Task.jsm");
 
 const weaveService = Cc["@mozilla.org/weave/service;1"]
                      .getService(Ci.nsISupports)
@@ -120,133 +121,121 @@ class AccountInfo extends React.Component {
   }
 }
 
-// Functions that compute a "summary" object for a collection. Returns an
-// object with key=name, value=react component.
-const summaryBuilders = {
-  bookmarks(records) {
-    // Build a tree representation of the remote bookmarks.
-    let problems = [];
-    let deleted = new Set();
-
-    let root = {
-      id: "<root>",
-      children: [
-        { id: "orphans", children: [] },
-        { id: "places", children: [] },
-        { id: "<deleted>", children: [] },
-      ]
-    };
-    let seen = new Map();
-    for (let child of root.children) {
-      seen.set(child.id, child);
-      child.parent = root;
+// Functions that compute additional per-collection components. Return a
+// promise that resolves with an object with key=name, value=react component.
+const collectionComponentBuilders = {
+  bookmarks: Task.async(function* (provider, serverRecords) {
+    try {
+      Cu.import("resource://services-sync/bookmark_validator.js");
+    } catch (_) {
+      return {
+        "Validation": React.createElement("p", null, "You need to update your browser to see validation results"),
+      }
     }
 
-    function makeItem(id, record) {
-      let me = seen.get(id);
-      if (me) {
-        // My entry might already exist as it was seen as a parent - in which
-        // case it shouldn't already have a record.
-        if (record) {
-          if (me.record) {
-            problems.push(`Record ${id} appears processed twice`);
-          }
-          me.record = record;
-        } else {
-          // We're an item that was previously created - either due to seeing
-          // the item itself, or due to being a parent we hadn't seen at the
-          // time it was created.
-          // If the latter we must have seen at least 1 child before.
-          if (!me.record && !me.children.length) {
-            // *sob* - our artificial children of the root hit this.
-            if ([for (c of root.children) c.id].indexOf(id) == -1) {
-              problems.push(`Record ${id} is an existing parent without children`);
-            }
-          }
-        }
+    let clientTree = yield provider.promiseBookmarksTree();
+    let validator = new BookmarkValidator();
+    let validationResults = validator.compareServerWithClient(serverRecords, clientTree);
+    let probs = validationResults.problemData;
+
+    // Turn the list of records into a map keyed by ID.
+    let serverMap = new Map(serverRecords.map(item => [item.id, item]));
+    let clientMap = new Map(validationResults.clientRecords.map(item => [item.id, item]))
+
+    function describeId(string, id) {
+      // Return a few React components to render a string containing a guid.
+      // Later I hope to make this an anchor and display more details, but
+      // this will do for now.
+      let descs = [];
+      let childItem = clientMap.get(id);
+      if (childItem) {
+        descs.push(`Exists locally with title "${childItem.title}"`);
       } else {
-        me = { id: id, children: [], record };
-        seen.set(id, me);
+        descs.push(`Does not exist locally`);
       }
-
-      // now parent the item up.
-      if (record) {
-        // We've got a real parentid (but not the record), so re-parent.
-        let newParent = makeItem(record.parentid, null);
-        if (newParent != me.parent) {
-          if (me.parent) {
-            // oh js, yu no have Array.remove()
-            me.parent.children.splice(me.parent.children.indexOf(me), 1);
-          }
-          me.parent = newParent;
-        }
-        me.parent.children.push(me);
+      let serverItem = serverMap.get(id);
+      if (serverItem) {
+        descs.push(`Exists on the server with title "${serverItem.title}"`);
       } else {
-        if (!me.parent) {
-          // We created an item and we don't know its parent - parent it as
-          // an orphan.
-          me.parent = seen.get("orphans");
-          me.parent.children.push(me);
+        descs.push(`Does not exist on the server`);
+      }
+      let desc = descs.join("\n");
+      let [left, right] = string.split("{id}");
+      return [
+        React.createElement("span", null, left),
+        React.createElement("span", { className: "inline-id", title: desc }, id),
+        React.createElement("span", null, right),
+      ];
+    }
+
+    let generateResults = function* () {
+      yield React.createElement("p", null, `There are ${probs.missingIDs} records without IDs`);
+
+      for (let { parent, child } of probs.missingChildren) {
+        let desc = describeId("Server record references child {id} that doesn't exist on the server.", child);
+        yield React.createElement("div", null,
+                React.createElement("p", null, desc),
+                createTableInspector([serverMap.get(parent)])
+              );
+      }
+
+      for (let { parents, child } of probs.multipleParents) {
+        let data = [ serverMap.get(child) ];
+        for (let parent of parents) {
+          data.push(serverMap.get(parent));
         }
+        let desc = describeId("Child record {id} appears as a child in multiple parents", child);
+        yield React.createElement("div", null,
+                React.createElement("p", null, desc),
+                createTableInspector(data)
+              );
       }
-      return me;
+
+      for (let id of probs.childrenOnNonFolder) {
+        let desc = describeId("Record {id} is not a folder but contains children.", id);
+        yield React.createElement("div", null,
+                React.createElement("p", null, desc),
+                createTableInspector([serverMap.get(id)])
+              );
+      }
+
+      for (let id of probs.serverMissing) {
+        let desc = describeId("Record {id} exists locally but is not on the server", id);
+        yield React.createElement("div", null,
+                React.createElement("p", null, desc),
+                createTableInspector([clientMap.get(id) || {oops: "no such record"}])
+              );
+      }
+
+      for (let { id, differences } of probs.differences) {
+        let diffTable = differences.map(field => {
+          return {
+            field,
+            local: clientMap.get(id)[field],
+            server: serverMap.get(id)[field]
+          }
+        });
+        let desc = describeId("Record {id} has differences between local and server copies", id);
+        yield React.createElement("div", null,
+                React.createElement("p", null, desc),
+                createTableInspector(diffTable)
+              );
+
+      }
     }
 
-    for (let record of records) {
-      if (record.deleted) {
-        // cheat for deleted items - this treats them as "normal" items, so
-        // allows us to detect items that have a deleted item as a parent
-        // (which would be bad!)
-        record.parentid = "<deleted>";
-      }
-      makeItem(record.id, record);
-    }
-
-    // Make a TreeView DOM element from one of the nodes we build above.
-    function makeTreeFromNode(node, label = null, depth = 1) {
-      console.log("make tree", depth, node);
-      let record = node.record || {};
-      label = label || record.title;
-      if (!label && record.deleted) {
-        label = `deleted ${record.type} with id=${record.id}`;
-      }
-      if (!label) {
-        switch (record.type) {
-          case "query":
-            label = "query: " + record.bmkUri;
-            break;
-          default:
-            label = `<Untitled ${record.type}>`;
-        }
-      }
-      let children = [];
-      // Some children that form the "summary"...
-      if (record.description) {
-        children.push(React.createElement("p", { className: "bookmark-description"}, record.description));
-      }
-      let summary = `A ${record.type} with ${node.children.length} children`;
-      children.push(React.createElement("p", { className: "bookmark-description"}, summary));
-      children.push(createObjectInspector("record", record, 0));
-
-      // And children that are sub-trees.
-      let nodeLabel = React.createElement("span", null, label);
-      for (let child of node.children) {
-        children.push(React.createElement("div", null, makeTreeFromNode(child, null, depth + 1)));
-      }
-      return React.createElement(TreeView, { key: record.id, nodeLabel, defaultCollapsed: false },
-                                 ...children);
-    }
-    // mangle <deleted> into a table
-    let deletedTable = seen.get("<deleted>").children.map(child => {
-      return { id: child.id, "num children": child.children.length };
+    // We can't use the tree we generated above as the bookmark validator
+    // mutates it.
+    let rawTree = yield PlacesUtils.promiseBookmarksTree("", {
+      includeItemIds: true
     });
-    // XXX - include "problems" here.
     return {
-      "Remote Tree": makeTreeFromNode(seen.get("places"), "Bookmarks Tree"),
-      "Orphaned Items": makeTreeFromNode(seen.get("orphans"), "Orphaned Items"),
-      "Deleted Items": createTableInspector(deletedTable),
+      "Validation": [...generateResults()],
+      "Raw validation results": createObjectInspector("Validation", validationResults),
+      "Client Records": createTableInspector(validationResults.clientRecords),
+      "Client Tree": createObjectInspector("root", rawTree),
     };
-  },
+  }),
 
 }
 
@@ -260,7 +249,12 @@ class CollectionViewer extends React.Component {
   componentDidMount() {
     this.props.provider.promiseCollection(this.props.info).then(result => {
       let { response, records} = result;
-      this.setState({ response, records });
+      // run the summary builder that's specific to this collection.
+      let additionalBuilder = collectionComponentBuilders[this.props.info.name];
+      this.setState({ response, records, hasAdditional: !!additionalBuilder, additional: null });
+      return additionalBuilder ? additionalBuilder(this.props.provider, records) : null;
+    }).then(additional => {
+      this.setState({ additional });
     }).catch(err => console.error("Failed to fetch collection", err));
   }
 
@@ -282,13 +276,16 @@ class CollectionViewer extends React.Component {
       let tabs = [
         React.createElement(ReactSimpleTabs.Panel, { title: "Summary"}, summary),
       ];
-      // additional per-collection summaries
-      let summaryBuilder = summaryBuilders[name];
-      if (summaryBuilder) {
-        let summaries = summaryBuilder(this.state.records);
-        for (let title in summaries) {
-          let elt = summaries[title];
-          tabs.push(React.createElement(ReactSimpleTabs.Panel, { title }, elt));
+      // Do we have additional components for this collection?
+      if (this.state.hasAdditional) {
+        // We are expecting additional components - do we have them yet?
+        if (this.state.additional) {
+          for (let title in this.state.additional) {
+            let elt = this.state.additional[title];
+            tabs.push(React.createElement(ReactSimpleTabs.Panel, { title }, elt));
+          }
+        } else {
+          tabs.push(React.createElement(Fetching, { label: "Building additional info..." }))
         }
       }
       // and tabs common to all collections.

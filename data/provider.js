@@ -8,6 +8,7 @@ let Providers = (function() {
   Cu.import("resource://gre/modules/Task.jsm");
   Cu.import("resource://services-sync/record.js");
   Cu.import("resource://gre/modules/osfile.jsm")
+  Cu.import("resource://gre/modules/PlacesUtils.jsm");
 
   // We always clone the data we return as the consumer may modify it (and
   // that's a problem for our "export" functionality - we don't want to write
@@ -56,6 +57,12 @@ let Providers = (function() {
     promiseCollection(info) {
       return this._loadPromise.then(data => {
         return clone(data.collections[info.name]);
+      });
+    }
+
+    promiseBookmarksTree() {
+      return this._loadPromise.then(data => {
+        return clone(data.bookmarksTree);
       });
     }
   }
@@ -119,6 +126,12 @@ let Providers = (function() {
       return this._collections[info.name].then(result => clone(result));
     }
 
+    promiseBookmarksTree() {
+      return PlacesUtils.promiseBookmarksTree("", {
+        includeItemIds: true
+      }).then(result => clone(result));
+    }
+
     promiseExport(path, collections = ["bookmarks"]) {
       return Task.spawn(function* () {
         // We need to wait for all collections to complete.
@@ -134,6 +147,9 @@ let Providers = (function() {
           infos: infos,
           collections: {},
         };
+        if (collections.indexOf("bookmarks") >= 0) {
+          ob.bookmarksTree = yield this.promiseBookmarksTree();
+        }
         for (let info of infos.collections) {
           let got = yield this.promiseCollection(info);
           ob.collections[info.name] = got;
