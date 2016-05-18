@@ -221,3 +221,10 @@ html {
 .table-inspector-number-cell {
   color: green;
 }
+
+.table-inspector .col-children,
+.table-inspector .col-parent {
+  /* Really the columns should be resizable, but these are the most
+     obvious places where that not working hurts */
+  min-width: 275px;
+}

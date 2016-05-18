@@ -1,5 +1,6 @@
 let AboutSyncTableInspector = (function() {
   'use strict';
+  const {DOM, PropTypes} = React;
 
   const indexSymbol = Symbol('index');
 
@@ -7,8 +8,18 @@ let AboutSyncTableInspector = (function() {
     try {
       return JSON.stringify(obj);
     } catch (e) {
-      return '<Recursive>';
+      return '<Recursive (double-click to expand)>';
     }
+  }
+
+  // By default String(Symbol('foo')) is 'Symbol(foo)', which is unlikely to be
+  // what we want (also, ''+someSymbol throws). 
+  function forceStr(s) {
+    let str = String(s);
+    if (typeof s === 'symbol') {
+      return str.slice(6);
+    }
+    return str;
   }
 
   function doSortBy(aVal, bVal) {
@@ -30,15 +41,46 @@ let AboutSyncTableInspector = (function() {
     }
   }
 
-  function defaultCellFormatter(cellValue, columnName, owningRow) {
+  function defaultCellFormatter(cellValue, isExpanded, columnName, owningRow) {
+    if (isExpanded) {
+      return React.createElement(ReactInspector.ObjectInspector, {data: cellValue});
+    }
     let cellString = '';
     let cellClass = `table-inspector-${typeof(cellValue)}-cell`
     if (typeof(cellValue) !== 'undefined') {
       cellString = safeStringify(cellValue);
     }
-    return React.createElement('span',
-      {className: cellClass, title: cellString},
-      cellString);
+    return DOM.span({className: cellClass, title: cellString}, cellString);
+  }
+
+  class AboutSyncTableInspectorRow extends React.Component {
+    constructor(props) {
+      super(props);
+      this.state = { isExpanded: false };
+    }
+    render() {
+
+      const {tr, td} = DOM;
+      return tr(
+        {
+          onDoubleClick: () => this.setState({ isExpanded: !this.state.isExpanded }),
+          className: this.state.isExpanded ? 'table-inspector-expanded-row' : '',
+        },
+        this.props.columns.map(colName =>
+          // Could also pass back 'original' row passed in with data[row[indexSymbol]],
+          // but it's not clear that that's worth doing, especially since then
+          // owningRow[columnName] wouldn't be reliable.
+          td(
+            {
+              key: String(colName),
+              className: 'col-'+forceStr(colName)
+            },
+            this.props.cellFormatter(
+              this.props.data[colName], this.state.isExpanded, colName, this.props.data)
+          )
+        )
+      );
+    }
   }
 
   class AboutSyncTableInspector extends React.Component {
@@ -47,19 +89,8 @@ let AboutSyncTableInspector = (function() {
       // default sort order is *ascending*, and the default sort key is the index.
       this.state = {
         sortBy: 0,
-        sortOrder: 1,
-        expandedRows: {}
+        sortOrder: 1
       };
-    }
-
-    expandRow(row) {
-      // This should be moved into the row itself, so that we don't rerender
-      // the whole table when this happens.
-      let rowIndex = row[indexSymbol];
-      this.state.expandedRows[rowIndex] = !this.state.expandedRows[rowIndex]
-      this.setState({
-        state: this.state.expandedRows
-      });
     }
 
     getColumns(data) {
@@ -102,18 +133,26 @@ let AboutSyncTableInspector = (function() {
         return doSortBy(aVal, bVal) * this.state.sortOrder;
       });
 
-      return React.createElement('table', { className: this.props.className },
-        React.createElement('thead', null,
-          React.createElement('tr', null,
+      const {table, colgroup, col, thead, tr, th, tbody, td} = DOM;
+      return table(
+        { className: this.props.className },
+        colgroup(null,
+          columns.map(c => {
+            let colName = 'col-'+forceStr(c);
+            return col({ key: colName, className: colName });
+          })
+        ),
+        thead(null,
+          tr(null,
             columns.map((col, index) => {
               let glyph = '';
               if (this.state.sortBy === index) {
                 glyph = this.state.sortOrder < 0 ? ' ▼' : ' ▲';
               }
-              // convert 'Symbol(index)' => '(index)'
-              let colName = typeof col === 'symbol' ? String(col).slice(6) : col;
-              return React.createElement('th', {
+              let colName = forceStr(col);
+              return th({
                   key: String(col),
+                  className: 'col-'+colName,
                   onClick: () => this.reorder(index),
                   style: { cursor: 'pointer' }
                 },
@@ -122,22 +161,14 @@ let AboutSyncTableInspector = (function() {
             })
           )
         ),
-        React.createElement('tbody', null,
+        tbody(null,
           rowData.map((row, index) =>
-            React.createElement('tr', {
-                key: row.id+':'+row[indexSymbol],
-                onDoubleClick: () => this.expandRow(row),
-                className: this.state.expandedRows[row[indexSymbol]] ? 'table-inspector-expanded-row' : '',
-              },
-              columns.map(colName =>
-                // Could also pass back 'original' row passed in with data[row[indexSymbol]],
-                // but it's not clear that that's worth doing, especially since then
-                // owningRow[columnName] wouldn't be reliable.
-                React.createElement('td', {key: String(colName)}, 
-                  this.props.cellFormatter(row[colName], colName, row)
-                )
-              )
-            )
+            React.createElement(AboutSyncTableInspectorRow, {
+              columns,
+              key: (row.id || row.guid)+':'+row[indexSymbol],
+              data: row,
+              cellFormatter: this.props.cellFormatter
+            })
           )
         )
       );
@@ -145,10 +176,10 @@ let AboutSyncTableInspector = (function() {
   }
 
   AboutSyncTableInspector.propTypes = {
-    data: React.PropTypes.array.isRequired,
-    columns: React.PropTypes.array,
-    className: React.PropTypes.string,
-    cellFormatter: React.PropTypes.func,
+    data: PropTypes.array.isRequired,
+    columns: PropTypes.array,
+    className: PropTypes.string,
+    cellFormatter: PropTypes.func,
   };
 
   AboutSyncTableInspector.defaultProps = {
