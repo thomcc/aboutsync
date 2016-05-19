@@ -140,6 +140,10 @@ const collectionComponentBuilders = {
 
     // Turn the list of records into a map keyed by ID.
     let serverMap = new Map(serverRecords.map(item => [item.id, item]));
+    // Ensure that we show the instance the validator considered canonical
+    // (this may be different in the case of duplicate ids).
+    validationResults.records.forEach(record => serverMap.set(record.id, record));
+
     let clientMap = new Map(validationResults.clientRecords.map(item => [item.id, item]))
 
     function describeId(string, id) {
@@ -168,8 +172,20 @@ const collectionComponentBuilders = {
       ];
     }
 
+    function describeSimpleProblem(problem, id, isClient=false) {
+      let desc = describeId(problem, id);
+      let sourceMap = isClient ? clientMap : serverMap;
+      return React.createElement("div", null,
+        React.createElement("p", null, desc),
+        createTableInspector([sourceMap.get(id)])
+      );
+    }
+
     let generateResults = function* () {
       yield React.createElement("p", null, `There are ${probs.missingIDs} records without IDs`);
+      if (probs.rootOnServer) {
+        yield React.createElement("p", null, "The root is present on the server, but should not be.");
+      }
 
       for (let { parent, child } of probs.missingChildren) {
         let desc = describeId("Server record references child {id} that doesn't exist on the server.", child);
@@ -190,37 +206,142 @@ const collectionComponentBuilders = {
                 createTableInspector(data)
               );
       }
+      if (probs.duplicates.length) {
+        for (let dupeId of probs.duplicates) {
+          let dupes = serverRecords.filter(id => id === dupeId);
+          for (let dup of dupes) {
+            // Since the validator bails out immediately when it sees a duplicate,
+            // these properties won't be filled in for any but the first.
+            if (!dup.parent) {
+              dup.parent = serverMap.get(dup.parentid);
+            }
+            if (dup.children && !dup.childGUIDs) {
+              dup.childGUIDs = dup.children;
+              dup.children = dup.childGUIDs.map(id => serverMap.get(id));
+            }
+          }
+          yield React.createElement("div", null,
+            describeId("The id {id} appears multiple times on the server.", dupeId),
+            createTableInspector(dupes)
+          );
+        }
+      }
+
+      for (let { parent, child } of probs.parentChildMismatches) {
+        let desc = describeId("Server-side parent/child mismatch for parent {id} (first) and ", parent)
+          .concat(describeId("child {id} (second).", child))
+        yield React.createElement("div", null,
+                React.createElement("p", null, desc),
+                createTableInspector([serverMap.get(parent), serverMap.get(child)])
+              );
+      }
+
+      for (let cycle of probs.cycles) {
+        let desc = React.createElement("p", null,
+          `Cycle detected through ${cycle.length} items on server`,
+          cycle.map((id, index) =>
+            describeId(`${index ? ":" : " =>"} {id}`)));
+        yield React.createElement("div", null, desc,
+          createTableInspector(cycle.map(id => serverMap.get(id))));
+      }
+
+      for (let orphan of probs.orphans) {
+        yield describeSimpleProblem("Server record {id} is an orphan.", orphan);
+      }
+
+      for (let orphanish of probs.deletedParents) {
+        yield describeSimpleProblem(
+          "Server side record {id} is not deleted but had a deleted parent.", orphanish);
+      }
+
+      for (let id of probs.duplicateChildren) {
+        yield describeSimpleProblem(
+          "Server side record {id} had the same child id multiple times in it's children list.", id);
+      }
+
+      // Some of these probably should have more in-depth descriptions, but for
+      // now you can find details by expanding.
+      for (let id of probs.parentNotFolder) {
+        yield describeSimpleProblem(
+          "Server side record {id} has a non-folder for a parent.", id);
+      }
+
+      for (let id of probs.wrongParentName) {
+        yield describeSimpleProblem(
+          "Server side record {id} has a non-folder for a parent.", id);
+      }
 
       for (let id of probs.childrenOnNonFolder) {
-        let desc = describeId("Record {id} is not a folder but contains children.", id);
-        yield React.createElement("div", null,
-                React.createElement("p", null, desc),
-                createTableInspector([serverMap.get(id)])
-              );
+        yield describeSimpleProblem("Record {id} is not a folder but contains children.", id);
       }
 
-      for (let id of probs.serverMissing) {
-        let desc = describeId("Record {id} exists locally but is not on the server", id);
+      let serverMissingOrDeleted = new Map(probs.serverMissing.map(id => [id, false]));
+      probs.serverDeleted.forEach(id =>
+        serverMissingOrDeleted.set(id, true));
+
+      for (let [id, existedButDeleted] of serverMissingOrDeleted) {
+        let message = "Record {id} exists locally but ";
+        if (existedButDeleted) {
+          message += "was marked as deleted on the server";
+        } else {
+          message += "is not on the server"
+        }
+        let desc = describeId(message, id);
         yield React.createElement("div", null,
                 React.createElement("p", null, desc),
-                createTableInspector([clientMap.get(id) || {oops: "no such record"}])
-              );
+                createTableInspector([clientMap.get(id) || {oops: "no such record"}]));
       }
 
+      const structuralDifferenceFields = ['childGUIDs', 'parentid'];
+
+      let typicalDifferenceData = [];
+      let structuralDifferenceData = [];
       for (let { id, differences } of probs.differences) {
-        let diffTable = differences.map(field => {
-          return {
-            field,
-            local: clientMap.get(id)[field],
-            server: serverMap.get(id)[field]
+
+        let structuralIssues = differences.filter(diff =>
+          structuralDifferenceFields.includes(diff));
+
+        if (structuralIssues.length) {
+          // split the structural issues from the non-structural ones.
+          structuralDifferenceData.push({ id, differences: structuralIssues });
+
+          let nonStructuralIssues = differences.filter(diff =>
+            !structuralDifferenceFields.includes(diff));
+          if (nonStructuralIssues.length) {
+            typicalDifferenceData.push({ id, differences: nonStructuralIssues });
           }
-        });
+
+        } else {
+          typicalDifferenceData.push({ id, differences });
+        }
+      }
+
+      function diffTableEntry(id, field) {
+        return {
+          field,
+          local: clientMap.get(id)[field],
+          server: serverMap.get(id)[field]
+        };
+      }
+
+      for (let { id, differences } of typicalDifferenceData) {
+        let diffTable = differences.map(field => diffTableEntry(id, field))
         let desc = describeId("Record {id} has differences between local and server copies", id);
         yield React.createElement("div", null,
                 React.createElement("p", null, desc),
                 createTableInspector(diffTable)
               );
+      }
 
+      // show all of these for structural differences
+      const structuralFields = ['childGUIDs', 'parentid', 'children', 'parent'];
+      for (let { id } of structuralDifferenceData) {
+        let diffTable = structuralFields.map(field => diffTableEntry(id, field));
+        let desc = describeId("Record {id} has structural differences between local and server copies", id);
+        yield React.createElement("div", null,
+                React.createElement("p", null, desc),
+                createTableInspector(diffTable)
+              );
       }
     }
 
