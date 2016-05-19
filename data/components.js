@@ -277,8 +277,12 @@ const collectionComponentBuilders = {
         yield describeSimpleProblem("Record {id} is not a folder but contains children.", id);
       }
 
+      for (let id of probs.clientMissing) {
+        yield describeSimpleProblem("Record {id} appears on the server but is not on the client.", id);
+      }
+
       for (let id of probs.serverUnexpected) {
-        yield describeSimpleProblem("Record {id} appears on the server, but the client should never upload it.", id);
+        yield describeSimpleProblem("Record {id} appears on the server but the client should never upload it.", id);
       }
 
       let serverMissingOrDeleted = new Map(probs.serverMissing.map(id => [id, false]));
