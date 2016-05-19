@@ -182,7 +182,9 @@ const collectionComponentBuilders = {
     }
 
     let generateResults = function* () {
-      yield React.createElement("p", null, `There are ${probs.missingIDs} records without IDs`);
+      if (probs.missingIDs) {
+        yield React.createElement("p", null, `There are ${probs.missingIDs} records without IDs`);
+      }
       if (probs.rootOnServer) {
         yield React.createElement("p", null, "The root is present on the server, but should not be.");
       }
@@ -273,6 +275,10 @@ const collectionComponentBuilders = {
 
       for (let id of probs.childrenOnNonFolder) {
         yield describeSimpleProblem("Record {id} is not a folder but contains children.", id);
+      }
+
+      for (let id of probs.serverUnexpected) {
+        yield describeSimpleProblem("Record {id} appears on the server, but the client should never upload it.", id);
       }
 
       let serverMissingOrDeleted = new Map(probs.serverMissing.map(id => [id, false]));
