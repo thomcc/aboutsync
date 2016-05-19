@@ -181,6 +181,17 @@ const collectionComponentBuilders = {
       );
     }
 
+    function describeProblemList(desc, ids, isClient=false) {
+      if (!ids || !ids.length) {
+        return null;
+      }
+      let sourceMap = isClient ? clientMap : serverMap;
+      return React.createElement("div", null,
+        React.createElement("p", null, desc),
+        createTableInspector(ids.map(id => sourceMap.get(id)))
+      );
+    }
+
     let generateResults = function* () {
       if (probs.missingIDs) {
         yield React.createElement("p", null, `There are ${probs.missingIDs} records without IDs`);
@@ -208,6 +219,7 @@ const collectionComponentBuilders = {
                 createTableInspector(data)
               );
       }
+
       if (probs.duplicates.length) {
         for (let dupeId of probs.duplicates) {
           let dupes = serverRecords.filter(id => id === dupeId);
@@ -247,61 +259,45 @@ const collectionComponentBuilders = {
           createTableInspector(cycle.map(id => serverMap.get(id))));
       }
 
-      for (let orphan of probs.orphans) {
-        yield describeSimpleProblem("Server record {id} is an orphan.", orphan);
-      }
+      yield describeProblemList(
+        "The following server records are orphans.",
+        probs.orphans);
 
-      for (let orphanish of probs.deletedParents) {
-        yield describeSimpleProblem(
-          "Server side record {id} is not deleted but had a deleted parent.", orphanish);
-      }
+      yield describeProblemList(
+        "The following server records have deleted parents not deleted but had a deleted parent.",
+        probs.deletedParents);
 
-      for (let id of probs.duplicateChildren) {
-        yield describeSimpleProblem(
-          "Server side record {id} had the same child id multiple times in it's children list.", id);
-      }
+      yield describeProblemList(
+        "The following server records had the same child id multiple their children lists.",
+        probs.duplicateChildren);
 
-      // Some of these probably should have more in-depth descriptions, but for
-      // now you can find details by expanding.
-      for (let id of probs.parentNotFolder) {
-        yield describeSimpleProblem(
-          "Server side record {id} has a non-folder for a parent.", id);
-      }
+      yield describeProblemList(
+        "The following server records had a non-folder for a parent.",
+        probs.parentNotFolder);
 
-      for (let id of probs.wrongParentName) {
-        yield describeSimpleProblem(
-          "Server side record {id} has a non-folder for a parent.", id);
-      }
+      yield describeProblemList(
+        "The following server records had a parentName that did not match the parent's actual name.",
+        probs.wrongParentName);
 
-      for (let id of probs.childrenOnNonFolder) {
-        yield describeSimpleProblem("Record {id} is not a folder but contains children.", id);
-      }
+      yield describeProblemList(
+        "The following server records were not folders but contained children.",
+        probs.childrenOnNonFolder);
 
-      for (let id of probs.clientMissing) {
-        yield describeSimpleProblem("Record {id} appears on the server but is not on the client.", id);
-      }
+      yield describeProblemList(
+        "The following server records appear on the server but not on the client.",
+        probs.clientMissing);
 
-      for (let id of probs.serverUnexpected) {
-        yield describeSimpleProblem("Record {id} appears on the server but the client should never upload it.", id);
-      }
+      yield describeProblemList(
+        "The following server records appear on the server but should not have been uploaded.",
+        probs.serverUnexpected);
 
-      let serverMissingOrDeleted = new Map(probs.serverMissing.map(id => [id, false]));
-      probs.serverDeleted.forEach(id =>
-        serverMissingOrDeleted.set(id, true));
+      yield describeProblemList(
+        "The following records appear on the client but not on the server.",
+        probs.serverMissing, true);
 
-      for (let [id, existedButDeleted] of serverMissingOrDeleted) {
-        let message = "Record {id} exists locally but ";
-        if (existedButDeleted) {
-          message += "was marked as deleted on the server";
-        } else {
-          message += "is not on the server"
-        }
-        let desc = describeId(message, id);
-        yield React.createElement("div", null,
-                React.createElement("p", null, desc),
-                createTableInspector([clientMap.get(id) || {oops: "no such record"}]));
-      }
-
+      yield describeProblemList(
+        "The following records appear on the client but were marked as deleted on the server.",
+        probs.serverDeleted, true);
       const structuralDifferenceFields = ['childGUIDs', 'parentid'];
 
       let typicalDifferenceData = [];
@@ -361,7 +357,7 @@ const collectionComponentBuilders = {
       includeItemIds: true
     });
     return {
-      "Validation": [...generateResults()],
+      "Validation": [...generateResults()].filter(Boolean),
       "Raw validation results": createObjectInspector("Validation", validationResults),
       "Client Records": createTableInspector(validationResults.clientRecords),
       "Client Tree": createObjectInspector("root", rawTree),
