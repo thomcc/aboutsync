@@ -14,14 +14,18 @@ class LogLevelSelectComponent extends React.Component {
   }
 
   handleChange(event) {
-    Preferences.set(this.props.pref, event.target.value);
+    for (let pref of this.props.prefs) {
+      Preferences.set(pref, event.target.value);
+    }
     // The state for these prefs are external (ie, in the Fx prefs store), so
     // force an update.
     this.forceUpdate();
   }
 
   render() {
-    let prefName = this.props.pref;
+    // We just take the value for the first pref (if there are multiple prefs
+    // for this object we are just making them all be the same value)
+    let prefName = this.props.prefs[0];
     let prefValue = Preferences.get(prefName);
     let names = Object.keys(Log.Level).filter(n => typeof Log.Level[n] == "number");
     let options = names.map(n => React.createElement("option", { value: n}, n));
@@ -40,7 +44,7 @@ class LogLevelComponent extends React.Component {
   render() {
     return React.createElement("div", { className: "logLevel" },
             React.createElement("span", null, this.props.label),
-            React.createElement(LogLevelSelectComponent, { pref: this.props.pref })
+            React.createElement(LogLevelSelectComponent, { prefs: this.props.prefs })
     );
   }
 }
@@ -70,17 +74,33 @@ class PrefCheckbox extends React.Component {
   }
 }
 
+const ENGINE_PREFS = [
+  "services.sync.log.logger.engine.addons",
+  "services.sync.log.logger.engine.apps",
+  "services.sync.log.logger.engine.bookmarks",
+  "services.sync.log.logger.engine.clients",
+  "services.sync.log.logger.engine.forms",
+  "services.sync.log.logger.engine.history",
+  "services.sync.log.logger.engine.passwords",
+  "services.sync.log.logger.engine.prefs",
+  "services.sync.log.logger.engine.tabs",
+];
+
 // The general "logging config" component.
 class LoggingConfig extends React.Component {
   render() {
     return React.createElement("div", null,
             React.createElement(LogLevelComponent,
+                                { label: "Level of messages written by Sync engines",
+                                  prefs: ENGINE_PREFS,
+                                }),
+            React.createElement(LogLevelComponent,
                                 { label: "Level of messages written to about:sync-logs log files",
-                                  pref: "services.sync.log.appender.file.level",
+                                  prefs: ["services.sync.log.appender.file.level"],
                                 }),
             React.createElement(LogLevelComponent,
                                 { label: "Level of messages written to dump - useful primarily for developers",
-                                  pref: "services.sync.log.appender.dump",
+                                  prefs: ["services.sync.log.appender.dump"],
                                 }),
             React.createElement(PrefCheckbox,
                                 { label: "Create log files even on success?",

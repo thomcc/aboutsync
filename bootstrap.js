@@ -3,6 +3,7 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/AddonManager.jsm");
 Cu.import("resource://gre/modules/Preferences.jsm");
+Cu.import("resource://gre/modules/Log.jsm");
 
 const INDEX_HTML = "chrome://aboutsync/content/index.html";
 
@@ -68,13 +69,28 @@ let windowListener = {
   onWindowTitleChange: function(aWindow, aTitle) {}
 };
 
+const ENGINE_NAMES = ["addons", "bookmarks", "clients", "forms", "history",
+                      "passwords", "prefs", "tabs"];
+
 function prefObserver(subject, topic, data) {
-  switch (data) {
-    case PREF_VERBOSE:
-      try {
-        verbose = Services.prefs.getBoolPref(PREF_VERBOSE);
-      } catch (ex) {}
-      break;
+  debug("saw preference", data, "change");
+  if (data == PREF_VERBOSE) {
+    try {
+      verbose = Services.prefs.getBoolPref(PREF_VERBOSE);
+    } catch (ex) {}
+  } else if (data.startsWith("services.sync.log.logger.engine.")) {
+    // This should really be built into sync itself :(
+    let engineName = data.split(".").pop();
+    let logName = "Sync.Engine." + engineName.charAt(0).toUpperCase() + engineName.slice(1);;
+    let levelString;
+    try {
+      levelString = Services.prefs.getCharPref(data);
+    } catch (ex) {}
+    if (levelString) {
+      let level = Log.Level[levelString];
+      Log.repository.getLogger(logName).level = level;
+      log("Adjusted log", logName, "to level", levelString);
+    }
   }
 }
 
@@ -94,6 +110,15 @@ const PREFS_TO_RESTORE = [
   "services.sync.log.appender.file.level",
   "services.sync.log.appender.dump",
   "services.sync.log.appender.file.logOnSuccess",
+  "services.sync.log.logger.engine.addons",
+  "services.sync.log.logger.engine.apps",
+  "services.sync.log.logger.engine.bookmarks",
+  "services.sync.log.logger.engine.clients",
+  "services.sync.log.logger.engine.forms",
+  "services.sync.log.logger.engine.history",
+  "services.sync.log.logger.engine.passwords",
+  "services.sync.log.logger.engine.prefs",
+  "services.sync.log.logger.engine.tabs",
 ];
 
 let savedPrefs = null;
@@ -136,6 +161,10 @@ function startup(data, reason) {
   Services.prefs.addObserver(PREF_VERBOSE, prefObserver, false);
   // Ensure initial values are picked up.
   prefObserver(null, "", PREF_VERBOSE);
+  for (let engine of ENGINE_NAMES) {
+    let pref = "services.sync.log.logger.engine." + engine;
+    Services.prefs.addObserver(pref, prefObserver, false);
+  }
   // Setup our "pref restorer"
   for (let topic of PREF_RESTORE_TOPICS) {
     Services.obs.addObserver(startoverObserver, topic, false);
