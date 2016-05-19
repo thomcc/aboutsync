@@ -159,21 +159,42 @@ html {
   line-height: 1;
   border-spacing: 0;
   border-collapse: collapse;
-  border: 1px solid #ddd;
+  border: 1px solid #bbb;
+  table-layout: fixed;
 }
 
 .table-inspector th, .table-inspector td {
   border: 1px solid #eee;
   padding: 0.5em 1em;
-}
-
-.table-inspector thead tr,
-.table-inspector tbody tr:not(.table-inspector-expanded-row) td {
-  max-height: 3em;
+  position: relative;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.table-inspector th .resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  padding: 0;
+  width: 6px;
+  background-color: rgba(0, 128, 255, 0.25);
+  cursor: ew-resize;
+}
+
+.table-inspector th .resizer:hover {
+  background-color: rgba(0, 192, 255, 0.75);
+  cursor: ew-resize;
+}
+
+.table-inspector th span {
+  cursor: pointer;
+}
+
+.table-inspector tr:not(.table-inspector-expanded-row) td,
+.table-inspector th {
+  max-height: 3em;
   white-space: nowrap;
-  max-width: 10em;
 }
 
 .table-inspector .table-inspector-expanded-row {
@@ -182,6 +203,7 @@ html {
 
 .table-inspector th {
   border-top: 0;
+  font-weight: normal;
 }
 
 .table-inspector th:first-child,
@@ -195,10 +217,6 @@ html {
 
 .table-inspector tbody tr:last-child {
   border-bottom: 0;
-}
-
-.table-inspector thead {
-  font-weight: normal;
 }
 
 .table-inspector tbody tr:nth-of-type(2n+1) {
@@ -215,11 +233,4 @@ html {
 
 .table-inspector-number-cell {
   color: green;
-}
-
-.table-inspector .col-children,
-.table-inspector .col-parent {
-  /* Really the columns should be resizable, but these are the most
-     obvious places where that not working hurts */
-  min-width: 275px;
 }

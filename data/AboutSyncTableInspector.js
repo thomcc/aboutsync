@@ -74,10 +74,7 @@ let AboutSyncTableInspector = (function() {
           // but it's not clear that that's worth doing, especially since then
           // owningRow[columnName] wouldn't be reliable.
           td(
-            {
-              key: String(colName),
-              className: 'col-'+forceStr(colName)
-            },
+            { key: String(colName) },
             this.props.cellFormatter(
               this.props.data[colName], this.state.isExpanded, colName, this.props.data)
           )
@@ -92,8 +89,31 @@ let AboutSyncTableInspector = (function() {
       // default sort order is *ascending*, and the default sort key is the index.
       this.state = {
         sortBy: 0,
-        sortOrder: 1
+        sortOrder: 1,
+        currentDragTarget: null,
+        dragTargetStartWidth: null,
+        dragTargetStartX: 0,
+        columnWidths: {},
       };
+      // Allow unbinding these without hassles...
+      this._onMouseMove = this._onMouseMove.bind(this);
+      this._onMouseUp = this._onMouseUp.bind(this);
+      setTimeout(() => this.setState({}), 5)
+    }
+
+    componentDidMount() {
+      window.addEventListener("mouseup", this._onMouseUp);
+      window.addEventListener("mousemove", this._onMouseMove);
+    }
+
+    componentWillUnmount() {
+      window.removeEventListener("mouseup", this._onMouseUp);
+      window.removeEventListener("mousemove", this._onMouseMove);
+    }
+
+    componentWillReceiveProps(newProps) {
+      this._cachedColumns = null;
+      this._cachedRows = null;
     }
 
     getColumns(data) {
@@ -109,6 +129,8 @@ let AboutSyncTableInspector = (function() {
     }
 
     reorder(index) {
+      this._cachedColumns = null;
+      this._cachedRows = null;
       if (this.state.sortBy !== index) {
         this.setState({ sortBy: index, sortOrder: 1 });
       } else {
@@ -116,7 +138,78 @@ let AboutSyncTableInspector = (function() {
       }
     }
 
-    render() {
+    _onMouseMove(event) {
+      if (!this.state.currentDragTarget) return;
+      event.preventDefault();
+      let {currentDragTarget, dragTargetStartWidth, dragTargetStartX, columnWidths} = this.state;
+      let newWidth = dragTargetStartWidth+(event.clientX-dragTargetStartX);
+      columnWidths[currentDragTarget] = newWidth;
+      // hacky: avoid the setState to avoid full rerender, and just update in place...
+
+      // note that both the <th> and the <col> need to be updated for it not to render super small initially.
+      let refName = "col-" + currentDragTarget;
+      this.refs[refName].style.width = newWidth + "px";
+      let elem = this.refs[currentDragTarget + "-header"];
+      elem.style.minWidth = newWidth + "px";
+      elem.style.maxWidth = newWidth + "px";
+      elem.style.width = newWidth + "px";
+    }
+
+    _onMouseUp() {
+      if (!this.state.currentDragTarget) return;
+      this.setState({ currentDragTarget: null });
+    }
+
+    componentDidUpdate() {
+      if (!this._cachedColumns) {
+        return;
+      }
+      let setAny = false;
+      let checkCol = (col) => {
+        if (!this.state.columnWidths[col]) {
+          this.state.columnWidths[col] = Math.min(300,
+            this.refs[forceStr(col) + "-header"].offsetWidth + 2); // 1px borders padding
+          setAny = true;
+        }
+      }
+      for (let col of this._cachedColumns) {
+        checkCol(col);
+      }
+      checkCol(forceStr(indexSymbol));
+      if (setAny) {
+        this.setState({columnWidths: this.state.columnWidths});
+      }
+    }
+
+    _onMouseDown(event, colName) {
+      let thElem = this.refs[colName + "-header"];
+      if (!thElem) {
+        console.warn("No such header ref: " + colName);
+        return;
+      }
+      event.preventDefault();
+      let handle = event.target;
+      let columnWidths = this.state.columnWidths;
+
+      let currentWidth = columnWidths[colName] || thElem.offsetWidth;
+      let currentMx = event.clientX;
+      let xOffset = 0;//handle ? (currentMx - handle.getBoundingClientRect().left) : 0;
+      currentMx += xOffset;
+
+      columnWidths[colName] = currentWidth;
+
+      this.setState({
+        columnWidths,
+        currentDragTarget: colName,
+        dragTargetStartWidth: currentWidth,
+        dragTargetStartX: currentMx,
+      });
+    }
+
+    _updateCache() {
+      // recomputing these every time was the source of a good amount of lag on
+      // larger tables, so we cache it (sadly, the cache has to be cleared
+      // explicitly...)
       let {columns, data} = this.props;
 
       if (!columns || !columns.length) {
@@ -136,39 +229,67 @@ let AboutSyncTableInspector = (function() {
         return doSortBy(aVal, bVal) * this.state.sortOrder;
       });
 
-      const {table, colgroup, col, thead, tr, th, tbody, td} = DOM;
+      this._cachedColumns = columns;
+      this._cachedRows = rowData;
+    }
+
+    render() {
+      if (!this._cachedRows || !this._cachedColumns) {
+        this._updateCache();
+      }
+
+      let {_cachedColumns: columns, _cachedRows: rowData} = this;
+
+      const {table, colgroup, col, tr, th, tbody, td, div, span} = DOM;
+      let tableStyle = {};
+      let haveComputedNaturalWidths = !!this.state.columnWidths[forceStr(indexSymbol)];
+      if (haveComputedNaturalWidths) {
+        tableStyle.width = "100%";
+      } else {
+        // avoid pop-in
+        tableStyle.visibility = "hidden";
+      }
       return table(
-        { className: this.props.className },
+        { className: this.props.className, style: tableStyle },
         colgroup(null,
           columns.map(c => {
-            let colName = 'col-'+forceStr(c);
-            return col({ key: colName, className: colName });
+            let colName = forceStr(c);
+            let colClass = "col-" + colName;
+            let style = {};
+            if (this.state.columnWidths[colName]) {
+              style.width = this.state.columnWidths[colName] + "px";
+            }
+            return col({ style, key: colClass, className: colClass, ref: colClass });
           })
         ),
-        thead(null,
-          tr(null,
+        tbody(null,
+          tr({key: 'heading'},
             columns.map((col, index) => {
-              let glyph = '';
+              let glyph = "";
               if (this.state.sortBy === index) {
-                glyph = this.state.sortOrder < 0 ? ' ▼' : ' ▲';
+                glyph = this.state.sortOrder > 0 ? " ▼" : " ▲";
               }
               let colName = forceStr(col);
-              return th({
-                  key: String(col),
-                  className: 'col-'+colName,
-                  onClick: () => this.reorder(index),
-                  style: { cursor: 'pointer' }
-                },
-                colName+glyph
+              let style = {};
+              if (this.state.columnWidths[colName]) {
+                style.minWidth = this.state.columnWidths[colName] + "px";
+                style.maxWidth = this.state.columnWidths[colName] + "px";
+                style.width = this.state.columnWidths[colName] + "px";
+              }
+              return th({ style, key: colName, ref: colName + "-header" },
+                span({ onClick: () => this.reorder(index) },
+                colName+glyph),
+                div({
+                  className: "resizer",
+                  onMouseDown: e => this._onMouseDown(e, colName)
+                })
               );
             })
-          )
-        ),
-        tbody(null,
-          rowData.map((row, index) =>
+          ),
+          ... rowData.map((row, index) =>
             React.createElement(AboutSyncTableInspectorRow, {
               columns,
-              key: (row.id || row.guid)+':'+row[indexSymbol],
+              key: (row.id || row.guid) + ":" + row[indexSymbol],
               data: row,
               cellFormatter: this.props.cellFormatter
             })
