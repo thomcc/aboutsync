@@ -4,9 +4,9 @@ let AboutSyncTableInspector = (function() {
 
   const indexSymbol = Symbol('index');
 
-  function safeStringify(obj) {
+  function safeStringify(obj, replacer, space) {
     try {
-      return JSON.stringify(obj);
+      return JSON.stringify(obj, replacer, space);
     } catch (e) {
       return '<Recursive (double-click to expand)>';
     }
@@ -46,11 +46,14 @@ let AboutSyncTableInspector = (function() {
       return React.createElement(ReactInspector.ObjectInspector, {data: cellValue});
     }
     let cellString = '';
+    let title = '';
     let cellClass = `table-inspector-${typeof(cellValue)}-cell`
     if (typeof(cellValue) !== 'undefined') {
       cellString = safeStringify(cellValue);
+      // a multi-line tooltip seems to have different length constraints...
+      title = safeStringify(cellValue, undefined, 2);
     }
-    return DOM.span({className: cellClass, title: cellString}, cellString);
+    return DOM.span({className: cellClass, title }, cellString);
   }
 
   class AboutSyncTableInspectorRow extends React.Component {
