@@ -7,7 +7,7 @@ let Providers = (function() {
 
   Cu.import("resource://gre/modules/Task.jsm");
   Cu.import("resource://services-sync/record.js");
-  Cu.import("resource://gre/modules/osfile.jsm")
+  Cu.import("resource://gre/modules/osfile.jsm");
   Cu.import("resource://gre/modules/PlacesUtils.jsm");
 
   // We always clone the data we return as the consumer may modify it (and
@@ -107,7 +107,7 @@ let Providers = (function() {
         let records = [];
         let key = Weave.Service.collectionKeys.keyForCollection(info.name);
         collection.recordHandler = record => {
-          record.decrypt(key)
+          record.decrypt(key);
           records.push(record.cleartext);
         }
         // Do the actual fetch after an event spin.
