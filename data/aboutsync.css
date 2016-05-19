@@ -4,19 +4,19 @@ html {
 }
 
 /* .state-* selectors for the state of the Firefox Account */
-.state-child {
+.state-container {
   display: none;
 }
 
-.state-container[data-logged-in="unknown"] .state-child-unknown {
+.state-container[data-logged-in="unknown"].loginstate-unknown {
   display: unset;
 }
 
-.state-container[data-logged-in="true"] .state-child-true {
+.state-container[data-logged-in="true"].loginstate-true {
   display: unset;
 }
 
-.state-container[data-logged-in="false"] .state-child-false {
+.state-container[data-logged-in="false"].loginstate-false {
   display: unset;
 }
 
@@ -43,11 +43,6 @@ html {
   flex-basis: 50%;
   flex-grow: 1;
   display: inline-block;
-}
-
-.header > div > p {
-  font-weight: bold;
-  font-size: larger;
 }
 
 .section-heading {

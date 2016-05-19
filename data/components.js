@@ -620,20 +620,15 @@ let ProviderState = {
 
 function render() {
   // I have no idea what I'm doing re element attribute states :)
-  // data-logged-in is already "unknown"
+  for (let elt of document.querySelectorAll(".state-container")) {
+    elt.setAttribute("data-logged-in", "unknown");
+  }
   whenSyncReady().then(loggedIn => {
     for (let elt of document.querySelectorAll(".state-container")) {
       elt.setAttribute("data-logged-in", loggedIn);
     }
-    if (!loggedIn) {
-      // the raw html and css has us covered!
-      return;
-    }
-    // render our react nodes
-    ReactDOM.render(React.createElement(AccountInfo, null),
-                    document.getElementById('account-info')
-    );
 
+    // Render the nodes that exist in any state.
     ReactDOM.render(React.createElement(LogFilesComponent, null),
                     document.getElementById('logfiles-info')
     );
@@ -643,6 +638,14 @@ function render() {
                           { href: "about:preferences#sync"},
                           "Open Sync Preferences"),
       document.getElementById('opensyncprefs')
+    );
+
+    if (!loggedIn) {
+      return;
+    }
+    // render the nodes that require us to be logged in.
+    ReactDOM.render(React.createElement(AccountInfo, null),
+                    document.getElementById('account-info')
     );
 
     ReactDOM.render(React.createElement(ProviderInfo, null),
