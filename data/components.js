@@ -127,6 +127,11 @@ const collectionComponentBuilders = {
   bookmarks: Task.async(function* (provider, serverRecords) {
     try {
       Cu.import("resource://services-sync/bookmark_validator.js");
+      // Early versions of this module had no "BookmarkProblemData", so check
+      // that here.
+      if (!BookmarkProblemData) {
+        throw "needs update"; // caught just below!
+      }
     } catch (_) {
       return {
         "Validation": React.createElement("p", null, "You need to update your browser to see validation results"),
@@ -170,15 +175,6 @@ const collectionComponentBuilders = {
         React.createElement("span", { className: "inline-id", title: desc }, id),
         React.createElement("span", null, right),
       ];
-    }
-
-    function describeSimpleProblem(problem, id, isClient=false) {
-      let desc = describeId(problem, id);
-      let sourceMap = isClient ? clientMap : serverMap;
-      return React.createElement("div", null,
-        React.createElement("p", null, desc),
-        createTableInspector([sourceMap.get(id)])
-      );
     }
 
     function describeProblemList(desc, ids, isClient=false) {
