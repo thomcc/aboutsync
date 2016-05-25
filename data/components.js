@@ -296,27 +296,8 @@ const collectionComponentBuilders = {
         probs.serverDeleted, true);
       const structuralDifferenceFields = ['childGUIDs', 'parentid'];
 
-      let typicalDifferenceData = [];
-      let structuralDifferenceData = [];
-      for (let { id, differences } of probs.differences) {
-
-        let structuralIssues = differences.filter(diff =>
-          structuralDifferenceFields.includes(diff));
-
-        if (structuralIssues.length) {
-          // split the structural issues from the non-structural ones.
-          structuralDifferenceData.push({ id, differences: structuralIssues });
-
-          let nonStructuralIssues = differences.filter(diff =>
-            !structuralDifferenceFields.includes(diff));
-          if (nonStructuralIssues.length) {
-            typicalDifferenceData.push({ id, differences: nonStructuralIssues });
-          }
-
-        } else {
-          typicalDifferenceData.push({ id, differences });
-        }
-      }
+      let typicalDifferenceData = probs.differences;
+      let structuralDifferenceData = probs.structuralDifferences;
 
       function diffTableEntry(id, field) {
         return {
