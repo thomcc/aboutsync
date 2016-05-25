@@ -624,6 +624,13 @@ let ProviderState = {
   },
 }
 
+let providerElement;
+
+function refreshProvider() {
+  // At some point this should be able to have the provider use if-modified-since
+  // etc to do the right thing - for now it does a full refresh.
+  providerElement.setState({ provider: ProviderState.newProvider() });
+}
 
 function render() {
   // I have no idea what I'm doing re element attribute states :)
@@ -655,9 +662,9 @@ function render() {
                     document.getElementById('account-info')
     );
 
-    ReactDOM.render(React.createElement(ProviderInfo, null),
-                    document.getElementById('provider-info')
-    );
+    providerElement = ReactDOM.render(React.createElement(ProviderInfo, null),
+                                      document.getElementById('provider-info'));
+
   }).catch(err => console.error("render() failed", err));
 }
 
