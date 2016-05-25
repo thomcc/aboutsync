@@ -352,8 +352,13 @@ const collectionComponentBuilders = {
     let rawTree = yield PlacesUtils.promiseBookmarksTree("", {
       includeItemIds: true
     });
+    let validationElements = [...generateResults()].filter(Boolean);
+    if (validationElements.length == 0) {
+      validationElements = React.createElement("div", null,
+                            React.createElement("p", null, "No validation problems found \\o/"));
+    }
     return {
-      "Validation": [...generateResults()].filter(Boolean),
+      "Validation": validationElements,
       "Raw validation results": createObjectInspector("Validation", validationResults),
       "Client Records": createTableInspector(validationResults.clientRecords),
       "Client Tree": createObjectInspector("root", rawTree),
