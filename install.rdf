@@ -8,7 +8,7 @@
     <em:type>2</em:type>
     <em:id>aboutsync@mhammond.github.com</em:id>
     <em:name>About Sync extension for Firefox</em:name>
-    <em:version>0.0.3</em:version>
+    <em:version>0.0.4</em:version>
     <em:description>Show information about Firefox Sync.</em:description>
     <em:creator>Mark Hammond</em:creator>
     <!-- optional items -->
