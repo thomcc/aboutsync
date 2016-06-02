@@ -33,8 +33,9 @@ function whenSyncReady() {
   });
 }
 
-function createObjectInspector(name, data, expandLevel = 1) {
-  return React.createElement(ReactInspector.ObjectInspector, {name, data, expandLevel: expandLevel });
+function createObjectInspector(name, data, expandLevel = 1, optObj = { key: name }) {
+  return React.createElement(ReactInspector.ObjectInspector,
+    Object.assign({name, data, expandLevel: expandLevel }, optObj));
 }
 
 function createTableInspector(data) {
@@ -103,20 +104,18 @@ class AccountInfo extends React.Component {
     let raw = [];
     if (this.state.profile) {
       let profile = this.state.profile;
-      avatar.push(React.createElement('img', { src: profile.avatar, className: "avatar" }));
-      info.push(React.createElement('p', null, profile.displayName));
+      avatar.push(React.createElement('img', { src: profile.avatar, className: "avatar", key: "avatar" }));
+      info.push(React.createElement('p', { key: "displayName" }, profile.displayName));
       raw.push(createObjectInspector("Full Profile", profile, 0));
     }
-    info.push(React.createElement('p', null, user.email));
+    info.push(React.createElement('p', { key: "email" }, user.email));
 
     return (
-      React.createElement('div', null, [
-        React.createElement('div', { className: "profileContainer" }, [
+      React.createElement('div', null,
+        React.createElement('div', { className: "profileContainer", },
           React.createElement('div', { className: "avatarContainer" }, ...avatar),
-          React.createElement('div', { className: "userInfoContainer" }, ...info),
-        ]),
-        ...raw,
-      ])
+          React.createElement('div', { className: "userInfoContainer" }, ...info)),
+        ...raw)
     );
   }
 }
@@ -170,11 +169,10 @@ const collectionComponentBuilders = {
       }
       let desc = descs.join("\n");
       let [left, right] = string.split("{id}");
-      return [
-        React.createElement("span", null, left),
-        React.createElement("span", { className: "inline-id", title: desc }, id),
-        React.createElement("span", null, right),
-      ];
+      return React.createElement("span", { className: "describeid-wrap", key: `describeId:${string}:${id}` },
+        React.createElement("span", { key: "left" }, left),
+        React.createElement("span", { className: "inline-id", title: desc, key: "center" }, id),
+        React.createElement("span", { key: "right" }, right));
     }
 
     function describeProblemList(desc, ids, isClient=false) {
@@ -182,7 +180,7 @@ const collectionComponentBuilders = {
         return null;
       }
       let sourceMap = isClient ? clientMap : serverMap;
-      return React.createElement("div", null,
+      return React.createElement("div", { key: desc },
         React.createElement("p", null, desc),
         createTableInspector(ids.map(id => sourceMap.get(id)))
       );
@@ -190,15 +188,15 @@ const collectionComponentBuilders = {
 
     let generateResults = function* () {
       if (probs.missingIDs) {
-        yield React.createElement("p", null, `There are ${probs.missingIDs} records without IDs`);
+        yield React.createElement("p", { key: "missingIDs" }, `There are ${probs.missingIDs} records without IDs`);
       }
       if (probs.rootOnServer) {
-        yield React.createElement("p", null, "The root is present on the server, but should not be.");
+        yield React.createElement("p", { key: "rootOnServer" }, "The root is present on the server, but should not be.");
       }
 
       for (let { parent, child } of probs.missingChildren) {
         let desc = describeId("Server record references child {id} that doesn't exist on the server.", child);
-        yield React.createElement("div", null,
+        yield React.createElement("div", { key: `missingChildren:${parent}:${child}` },
                 React.createElement("p", null, desc),
                 createTableInspector([serverMap.get(parent)])
               );
@@ -210,7 +208,7 @@ const collectionComponentBuilders = {
           data.push(serverMap.get(parent));
         }
         let desc = describeId("Child record {id} appears as a child in multiple parents", child);
-        yield React.createElement("div", null,
+        yield React.createElement("div", { key: `multipleParents:${child}` },
                 React.createElement("p", null, desc),
                 createTableInspector(data)
               );
@@ -230,7 +228,7 @@ const collectionComponentBuilders = {
               dup.children = dup.childGUIDs.map(id => serverMap.get(id));
             }
           }
-          yield React.createElement("div", null,
+          yield React.createElement("div", { key: 'duplicates:'+dupeId },
             describeId("The id {id} appears multiple times on the server.", dupeId),
             createTableInspector(dupes)
           );
@@ -240,7 +238,7 @@ const collectionComponentBuilders = {
       for (let { parent, child } of probs.parentChildMismatches) {
         let desc = describeId("Server-side parent/child mismatch for parent {id} (first) and ", parent)
           .concat(describeId("child {id} (second).", child))
-        yield React.createElement("div", null,
+        yield React.createElement("div", { key: `parentChildMismatches:${parent}:${child}` },
                 React.createElement("p", null, desc),
                 createTableInspector([serverMap.get(parent), serverMap.get(child)])
               );
@@ -251,7 +249,7 @@ const collectionComponentBuilders = {
           `Cycle detected through ${cycle.length} items on server`,
           cycle.map((id, index) =>
             describeId(`${index ? ":" : " =>"} {id}`)));
-        yield React.createElement("div", null, desc,
+        yield React.createElement("div", { key: `cycle:${cycle.join(':')}` }, desc,
           createTableInspector(cycle.map(id => serverMap.get(id))));
       }
 
@@ -310,7 +308,7 @@ const collectionComponentBuilders = {
       for (let { id, differences } of typicalDifferenceData) {
         let diffTable = differences.map(field => diffTableEntry(id, field))
         let desc = describeId("Record {id} has differences between local and server copies", id);
-        yield React.createElement("div", null,
+        yield React.createElement("div", { key: "differences" },
                 React.createElement("p", null, desc),
                 createTableInspector(diffTable)
               );
@@ -321,7 +319,7 @@ const collectionComponentBuilders = {
       for (let { id } of structuralDifferenceData) {
         let diffTable = structuralFields.map(field => diffTableEntry(id, field));
         let desc = describeId("Record {id} has structural differences between local and server copies", id);
-        yield React.createElement("div", null,
+        yield React.createElement("div", { key: "structuralDifferences" },
                 React.createElement("p", null, desc),
                 createTableInspector(diffTable)
               );
@@ -335,7 +333,7 @@ const collectionComponentBuilders = {
     });
     let validationElements = [...generateResults()].filter(Boolean);
     if (validationElements.length == 0) {
-      validationElements = React.createElement("div", null,
+      validationElements = React.createElement("div", { key: "validation" },
                             React.createElement("p", null, "No validation problems found \\o/"));
     }
     return {
@@ -369,9 +367,9 @@ class CollectionViewer extends React.Component {
 
   render() {
     let name = this.props.info.name;
-    let details = [React.createElement("div", { className: "collection-header" }, name)];
+    let details = [React.createElement("div", { className: "collection-header", key: "header" }, name)];
     if (this.state.records === undefined) {
-      details.push(React.createElement(Fetching, { label: "Fetching records..." }));
+      details.push(React.createElement(Fetching, { label: "Fetching records...", key: "fetching" }));
     } else {
       // Build up a set of tabs.
       let lastModified = new Date(this.props.info.lastModified);
@@ -383,7 +381,7 @@ class CollectionViewer extends React.Component {
                     );
 
       let tabs = [
-        React.createElement(ReactSimpleTabs.Panel, { title: "Summary"}, summary),
+        React.createElement(ReactSimpleTabs.Panel, { title: "Summary", key: "summary" }, summary),
       ];
       // Do we have additional components for this collection?
       if (this.state.hasAdditional) {
@@ -391,22 +389,22 @@ class CollectionViewer extends React.Component {
         if (this.state.additional) {
           for (let title in this.state.additional) {
             let elt = this.state.additional[title];
-            tabs.push(React.createElement(ReactSimpleTabs.Panel, { title }, elt));
+            tabs.push(React.createElement(ReactSimpleTabs.Panel, { title, key: title }, elt));
           }
         } else {
-          tabs.push(React.createElement(Fetching, { label: "Building additional info..." }))
+          tabs.push(React.createElement(Fetching, { label: "Building additional info...", key: "fetching" }))
         }
       }
       // and tabs common to all collections.
       tabs.push(...[
-        React.createElement(ReactSimpleTabs.Panel, { title: "Response" },
+        React.createElement(ReactSimpleTabs.Panel, { title: "Response", key: "response" },
                             createObjectInspector("Response", this.state.response)),
-        React.createElement(ReactSimpleTabs.Panel, { title: "Records (table)" },
+        React.createElement(ReactSimpleTabs.Panel, { title: "Records (table)", key: "response-table" },
                             createTableInspector(this.state.records)),
-        React.createElement(ReactSimpleTabs.Panel, { title: "Records (object)" },
+        React.createElement(ReactSimpleTabs.Panel, { title: "Records (object)", key: "response-object" },
                             createObjectInspector("Records", this.state.records)),
       ]);
-      details.push(React.createElement(ReactSimpleTabs, null, tabs));
+      details.push(React.createElement(ReactSimpleTabs, { key: "tabs" }, tabs));
     }
 
     return React.createElement("div", { className: "collection" },
@@ -508,16 +506,16 @@ class ProviderOptions extends React.Component {
 
     let local =
       React.createElement("p", null,
-        React.createElement("input", { type: "radio", checked: this.state.local, onClick: onLocalClick }),
+        React.createElement("input", { type: "radio", checked: this.state.local, onChange: onLocalClick }),
         React.createElement("span", null, "Load local Sync data")
       );
     let file =
       React.createElement("p", null,
-        React.createElement("input", { type: "radio", checked: !this.state.local, onClick: onExternalClick }),
+        React.createElement("input", { type: "radio", checked: !this.state.local, onChange: onExternalClick }),
         React.createElement("span", null, "Load JSON from url"),
         React.createElement("span", { className: "provider-extra", hidden: this.state.local },
           React.createElement("input", { value: this.state.url, onChange: onInputChange }),
-          React.createElement("button", {onClick: onChooseClick }, "Choose local file...")
+          React.createElement("button", { onClick: onChooseClick }, "Choose local file...")
         )
       );
     return React.createElement("div", null, local, file);
@@ -529,6 +527,15 @@ class ProviderInfo extends React.Component {
   constructor(props) {
     super(props);
     this.state = { provider: ProviderState.newProvider() };
+  }
+
+  componentDidMount() {
+    this.componentDidUpdate();
+  }
+
+  componentDidUpdate() {
+    ReactDOM.render(React.createElement(CollectionsViewer, { provider: this.state.provider }),
+                    document.getElementById('collections-info'));
   }
 
   render() {
@@ -557,8 +564,6 @@ class ProviderInfo extends React.Component {
       fp.open(fpCallback);
     }
 
-    ReactDOM.render(React.createElement(CollectionsViewer, { provider: this.state.provider }),
-                    document.getElementById('collections-info'));
 
     let providerIsLocal = this.state.provider.type == "local";
 
