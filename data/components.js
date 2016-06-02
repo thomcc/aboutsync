@@ -110,13 +110,13 @@ class AccountInfo extends React.Component {
     info.push(React.createElement('p', null, user.email));
 
     return (
-      React.createElement('div', null, [
-        React.createElement('div', { className: "profileContainer" }, [
+      React.createElement('div', null,
+        React.createElement('div', { className: "profileContainer" },
           React.createElement('div', { className: "avatarContainer" }, ...avatar),
-          React.createElement('div', { className: "userInfoContainer" }, ...info),
-        ]),
-        ...raw,
-      ])
+          React.createElement('div', { className: "userInfoContainer" }, ...info)
+        ),
+        ...raw
+      )
     );
   }
 }
@@ -170,11 +170,11 @@ const collectionComponentBuilders = {
       }
       let desc = descs.join("\n");
       let [left, right] = string.split("{id}");
-      return [
+      return React.createElement("span", null,
         React.createElement("span", null, left),
         React.createElement("span", { className: "inline-id", title: desc }, id),
-        React.createElement("span", null, right),
-      ];
+        React.createElement("span", null, right)
+      );
     }
 
     function describeProblemList(desc, ids, isClient=false) {
@@ -335,14 +335,14 @@ const collectionComponentBuilders = {
     });
     let validationElements = [...generateResults()].filter(Boolean);
     if (validationElements.length == 0) {
-      validationElements = React.createElement("div", null,
-                            React.createElement("p", null, "No validation problems found \\o/"));
+      validationElements = [React.createElement("div", null,
+                             React.createElement("p", null, "No validation problems found \\o/"))];
     }
     return {
       "Validation": validationElements,
-      "Raw validation results": createObjectInspector("Validation", validationResults),
-      "Client Records": createTableInspector(validationResults.clientRecords),
-      "Client Tree": createObjectInspector("root", rawTree),
+      "Raw validation results": [createObjectInspector("Validation", validationResults)],
+      "Client Records": [createTableInspector(validationResults.clientRecords)],
+      "Client Tree": [createObjectInspector("root", rawTree)],
     };
   }),
 
@@ -390,8 +390,8 @@ class CollectionViewer extends React.Component {
         // We are expecting additional components - do we have them yet?
         if (this.state.additional) {
           for (let title in this.state.additional) {
-            let elt = this.state.additional[title];
-            tabs.push(React.createElement(ReactSimpleTabs.Panel, { title }, elt));
+            let elts = this.state.additional[title];
+            tabs.push(React.createElement(ReactSimpleTabs.Panel, { title }, ...elts));
           }
         } else {
           tabs.push(React.createElement(Fetching, { label: "Building additional info..." }))
@@ -406,7 +406,7 @@ class CollectionViewer extends React.Component {
         React.createElement(ReactSimpleTabs.Panel, { title: "Records (object)" },
                             createObjectInspector("Records", this.state.records)),
       ]);
-      details.push(React.createElement(ReactSimpleTabs, null, tabs));
+      details.push(React.createElement(ReactSimpleTabs, null, ...tabs));
     }
 
     return React.createElement("div", { className: "collection" },
@@ -508,12 +508,12 @@ class ProviderOptions extends React.Component {
 
     let local =
       React.createElement("p", null,
-        React.createElement("input", { type: "radio", checked: this.state.local, onClick: onLocalClick }),
+        React.createElement("input", { type: "radio", checked: this.state.local, onChange: onLocalClick }),
         React.createElement("span", null, "Load local Sync data")
       );
     let file =
       React.createElement("p", null,
-        React.createElement("input", { type: "radio", checked: !this.state.local, onClick: onExternalClick }),
+        React.createElement("input", { type: "radio", checked: !this.state.local, onChange: onExternalClick }),
         React.createElement("span", null, "Load JSON from url"),
         React.createElement("span", { className: "provider-extra", hidden: this.state.local },
           React.createElement("input", { value: this.state.url, onChange: onInputChange }),
@@ -529,6 +529,15 @@ class ProviderInfo extends React.Component {
   constructor(props) {
     super(props);
     this.state = { provider: ProviderState.newProvider() };
+  }
+
+  componentDidMount() {
+    this.componentDidUpdate();
+  }
+
+  componentDidUpdate() {
+    ReactDOM.render(React.createElement(CollectionsViewer, { provider: this.state.provider }),
+                    document.getElementById('collections-info'));
   }
 
   render() {
@@ -556,9 +565,6 @@ class ProviderInfo extends React.Component {
       fp.appendFilters(nsIFilePicker.filterAll);
       fp.open(fpCallback);
     }
-
-    ReactDOM.render(React.createElement(CollectionsViewer, { provider: this.state.provider }),
-                    document.getElementById('collections-info'));
 
     let providerIsLocal = this.state.provider.type == "local";
 
