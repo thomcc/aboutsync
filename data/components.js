@@ -121,9 +121,151 @@ class AccountInfo extends React.Component {
   }
 }
 
+function describeProblemList(desc, ids, map) {
+  if (!ids || !ids.length) {
+    return null;
+  }
+  return React.createElement("div", null,
+    React.createElement("p", null, desc),
+    createTableInspector(ids.map(id => map.get(id)))
+  );
+}
+
+function describeIdFull(string, id, clientMap, serverMap) {
+  // Return a few React components to render a string containing a guid.
+  // Later I hope to make this an anchor and display more details, but
+  // this will do for now.
+  let descs = [];
+  let childItem = clientMap.get(id);
+  if (childItem) {
+    descs.push(`Exists locally with title "${childItem.title}"`);
+  } else {
+    descs.push(`Does not exist locally`);
+  }
+  let serverItem = serverMap.get(id);
+  if (serverItem) {
+    descs.push(`Exists on the server with title "${serverItem.title}"`);
+  } else {
+    descs.push(`Does not exist on the server`);
+  }
+  let desc = descs.join("\n");
+  let [left, right] = string.split("{id}");
+  return [
+    React.createElement("span", null, left),
+    React.createElement("span", { className: "inline-id", title: desc }, id),
+    React.createElement("span", null, right),
+  ];
+}
+
 // Functions that compute additional per-collection components. Return a
 // promise that resolves with an object with key=name, value=react component.
 const collectionComponentBuilders = {
+  addons: Task.async(function* (provider, serverRecords) {
+    Cu.import("resource://services-sync/engines/addons.js");
+    if (typeof AddonValidator == "undefined") {
+      return {
+        "Validation": [React.createElement("p", { key: "update-validation" },
+          "You need to update your browser to see validation results")],
+      };
+    }
+    // TODO: think about provider... AddonValidator wants to ask the engine if
+    // the addon should be synced -- That probably doesn't really need the engine
+    let addonsEngine = Weave.Service.engineManager.get("addons");
+
+    let validator = new AddonValidator(addonsEngine);
+    let clientRecords = validator.getClientItems();
+    let validationResults = validator.compareClientWithServer(clientRecords, serverRecords);
+
+    let serverMap = new Map(validationResults.records.map(item => [item.id, item]));
+    let clientMap = new Map(validationResults.clientRecords.map(item => [item.id, item]));
+
+    let fullClientData = clientRecords.map(cr => {
+      // make these appear first...
+      let result = { syncGUID: cr.syncGUID, id: cr.id };
+      let keys = Object.keys(Object.getPrototypeOf(cr));
+      for (let key of keys) {
+        if (key in result) {
+          continue;
+        }
+        let val = cr[key];
+        if (val != null && typeof val != "function") {
+          result[key] = cr[key];
+        }
+      }
+      let normed = clientMap.get(cr.syncGUID);
+      if (normed) {
+        normed.original = result;
+      }
+      return result;
+    });
+
+    function describeId(string, id) {
+      return describeIdFull(string, id, clientMap, serverMap);
+    }
+    // This probably should be rethought somewhat, just did the quick thing and removed major duplication,
+    function *generateResults() {
+      let probs = validationResults.problemData;
+      if (probs.missingIDs) {
+        yield React.createElement("p", null, `There are ${probs.missingIDs} records without IDs`);
+      }
+
+      yield describeProblemList(
+        "The following server records appear on the server but not on the client.",
+        probs.clientMissing, serverMap);
+
+      yield describeProblemList(
+        "The following server records appear on the server but should not have been uploaded.",
+        probs.serverUnexpected, serverMap);
+
+      yield describeProblemList(
+        "The following records appear on the client but not on the server.",
+        probs.serverMissing, clientMap);
+
+      yield describeProblemList(
+        "The following records appear on the client but were marked as deleted on the server.",
+        probs.serverDeleted, clientMap);
+
+      if (probs.duplicates.length) {
+        for (let dupeId of probs.duplicates) {
+          let dupes = serverRecords.filter(id => id === dupeId);
+          yield React.createElement("div", null,
+            describeId("The id {id} appears multiple times on the server.", dupeId),
+            createTableInspector(dupes)
+          );
+        }
+      }
+
+      function diffTableEntry(id, field) {
+        return {
+          field,
+          local: clientMap.get(id)[field],
+          server: serverMap.get(id)[field]
+        };
+      }
+
+      for (let { id, differences } of probs.differences) {
+        let diffTable = differences.map(field => diffTableEntry(id, field))
+        let desc = describeId("Record {id} has differences between local and server copies", id);
+        yield React.createElement("div", null,
+          React.createElement("p", null, desc),
+          createTableInspector(diffTable)
+        );
+      }
+    }
+
+
+    let validationElements = [...generateResults()].filter(Boolean);
+    if (validationElements.length == 0) {
+      validationElements = React.createElement("div", null,
+                            React.createElement("p", null, "No validation problems found \\o/"));
+    }
+    return {
+      "Validation": validationElements,
+      "Raw validation results": createObjectInspector("Validation", validationResults),
+      "Client Records": createTableInspector(fullClientData),
+    };
+  }),
+
   bookmarks: Task.async(function* (provider, serverRecords) {
     try {
       Cu.import("resource://services-sync/bookmark_validator.js");
@@ -134,7 +276,8 @@ const collectionComponentBuilders = {
       }
     } catch (_) {
       return {
-        "Validation": React.createElement("p", null, "You need to update your browser to see validation results"),
+        "Validation": [React.createElement("p", { key: "update-validation" },
+          "You need to update your browser to see validation results")],
       }
     }
 
@@ -152,40 +295,7 @@ const collectionComponentBuilders = {
     let clientMap = new Map(validationResults.clientRecords.map(item => [item.id, item]))
 
     function describeId(string, id) {
-      // Return a few React components to render a string containing a guid.
-      // Later I hope to make this an anchor and display more details, but
-      // this will do for now.
-      let descs = [];
-      let childItem = clientMap.get(id);
-      if (childItem) {
-        descs.push(`Exists locally with title "${childItem.title}"`);
-      } else {
-        descs.push(`Does not exist locally`);
-      }
-      let serverItem = serverMap.get(id);
-      if (serverItem) {
-        descs.push(`Exists on the server with title "${serverItem.title}"`);
-      } else {
-        descs.push(`Does not exist on the server`);
-      }
-      let desc = descs.join("\n");
-      let [left, right] = string.split("{id}");
-      return React.createElement("span", null,
-        React.createElement("span", null, left),
-        React.createElement("span", { className: "inline-id", title: desc }, id),
-        React.createElement("span", null, right)
-      );
-    }
-
-    function describeProblemList(desc, ids, isClient=false) {
-      if (!ids || !ids.length) {
-        return null;
-      }
-      let sourceMap = isClient ? clientMap : serverMap;
-      return React.createElement("div", null,
-        React.createElement("p", null, desc),
-        createTableInspector(ids.map(id => sourceMap.get(id)))
-      );
+      return describeIdFull(string, id, clientMap, serverMap);
     }
 
     let generateResults = function* () {
@@ -257,43 +367,43 @@ const collectionComponentBuilders = {
 
       yield describeProblemList(
         "The following server records are orphans.",
-        probs.orphans);
+        probs.orphans, serverMap);
 
       yield describeProblemList(
         "The following server records have deleted parents not deleted but had a deleted parent.",
-        probs.deletedParents);
+        probs.deletedParents, serverMap);
 
       yield describeProblemList(
         "The following server records had the same child id multiple their children lists.",
-        probs.duplicateChildren);
+        probs.duplicateChildren, serverMap);
 
       yield describeProblemList(
         "The following server records had a non-folder for a parent.",
-        probs.parentNotFolder);
+        probs.parentNotFolder, serverMap);
 
       yield describeProblemList(
         "The following server records had a parentName that did not match the parent's actual name.",
-        probs.wrongParentName);
+        probs.wrongParentName, serverMap);
 
       yield describeProblemList(
         "The following server records were not folders but contained children.",
-        probs.childrenOnNonFolder);
+        probs.childrenOnNonFolder, serverMap);
 
       yield describeProblemList(
         "The following server records appear on the server but not on the client.",
-        probs.clientMissing);
+        probs.clientMissing, serverMap);
 
       yield describeProblemList(
         "The following server records appear on the server but should not have been uploaded.",
-        probs.serverUnexpected);
+        probs.serverUnexpected, serverMap);
 
       yield describeProblemList(
         "The following records appear on the client but not on the server.",
-        probs.serverMissing, true);
+        probs.serverMissing, clientMap);
 
       yield describeProblemList(
         "The following records appear on the client but were marked as deleted on the server.",
-        probs.serverDeleted, true);
+        probs.serverDeleted, clientMap);
       const structuralDifferenceFields = ['childGUIDs', 'parentid'];
 
       let typicalDifferenceData = probs.differences;
