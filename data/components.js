@@ -37,8 +37,21 @@ function createObjectInspector(name, data, expandLevel = 1) {
   return React.createElement(ReactInspector.ObjectInspector, {name, data, expandLevel: expandLevel });
 }
 
+function aboutSyncCellFormatter(cellValue, isExpanded, columnName, owningRow) {
+  // It would be nice if we hid form value too, but that would require threading
+  // a lot of state through.
+  if (!isExpanded && columnName === "password") {
+    cellValue = "**** hidden unless expanded ****";
+  }
+  return AboutSyncTableInspector.defaultProps.cellFormatter(
+    cellValue, isExpanded, columnName, owningRow);
+}
+
 function createTableInspector(data) {
-  return React.createElement(AboutSyncTableInspector, { data });
+  return React.createElement(AboutSyncTableInspector, {
+    data,
+    cellFormatter: aboutSyncCellFormatter
+  });
 }
 
 // A tab-smart "anchor"
@@ -157,6 +170,96 @@ function describeIdFull(string, id, clientMap, serverMap) {
   ];
 }
 
+// Display validation results for subclasses of CollectionValidator that don't
+// do much else.
+class CollValidationResultDisplay extends React.Component {
+  constructor(props) {
+    super(props);
+  }
+  describeId(string, id) {
+    return describeIdFull(string, id,
+      this.props.clientMap, this.props.serverMap);
+  }
+  render() {
+    const { p, div } = React.DOM;
+    let { problems: probs, clientMap, serverMap } = this.props;
+    let elems = [];
+    if (probs.missingIDs) {
+      elems.push(p(null, `There are ${probs.missingIDs} records without IDs`));
+    }
+
+    elems.push(describeProblemList(
+      "The following server records appear on the server but not on the client.",
+      probs.clientMissing, serverMap));
+
+    elems.push(describeProblemList(
+      "The following server records appear on the server but should not have been uploaded.",
+      probs.serverUnexpected, serverMap));
+
+    elems.push(describeProblemList(
+      "The following records appear on the client but not on the server.",
+      probs.serverMissing, clientMap));
+
+    elems.push(describeProblemList(
+      "The following records appear on the client but were marked as deleted on the server.",
+      probs.serverDeleted, clientMap));
+
+    if (probs.duplicates.length) {
+      for (let dupeId of probs.duplicates) {
+        let dupes = serverRecords.filter(id => id === dupeId);
+        elems.push(div(null,
+          this.describeId("The id {id} appears multiple times on the server.", dupeId),
+          createTableInspector(dupes)));
+      }
+    }
+
+    function diffTableEntry(id, field) {
+      return {
+        field,
+        local: clientMap.get(id)[field],
+        server: serverMap.get(id)[field]
+      };
+    }
+
+    for (let { id, differences } of probs.differences) {
+      let diffTable = differences.map(field => diffTableEntry(id, field))
+      let desc = this.describeId("Record {id} has differences between local and server copies", id);
+      elems.push(div(null,
+        p(null, ...desc),
+        createTableInspector(diffTable)))
+    }
+    elems = elems.filter(Boolean);
+    if (elems.length === 0) {
+      elems.push(p(null, "No validation problems found \\o/"));
+    }
+    return div(null, ...elems);
+  }
+}
+
+// takes an array of objects who have no real properties but have a bunch of
+// getters on their prototypes, and returns an array of new objects that contain
+// the properties directly. Used for XPCOM stuff. prioritizedKeys are keys
+// which should be first in iteration order -- which means first in the table
+// when displayed.  This probably should be doable by passing in props to
+// our TableInspector...
+function expandProtoGetters(arr, prioritizedKeys = []) {
+  return arr.map(o => {
+    let result = Object.assign({}, o);
+    delete result.QueryInterface; // probably some other crap that needs to go as well...
+    prioritizedKeys.forEach(k => result[k] = o[k]);
+    let protoKeys = Object.keys(Object.getPrototypeOf(o));
+    for (let key of protoKeys) {
+      if (key in result) {
+        continue;
+      }
+      let val = o[key];
+      if (val != null && typeof val != "function") {
+        result[key] = o[key];
+      }
+    }
+    return result;
+  });
+}
 // Functions that compute additional per-collection components. Return a
 // promise that resolves with an object with key=name, value=react component.
 const collectionComponentBuilders = {
@@ -173,96 +276,89 @@ const collectionComponentBuilders = {
     let addonsEngine = Weave.Service.engineManager.get("addons");
 
     let validator = new AddonValidator(addonsEngine);
-    let clientRecords = validator.getClientItems();
+    let clientRecords = yield validator.getClientItems();
     let validationResults = validator.compareClientWithServer(clientRecords, serverRecords);
 
     let serverMap = new Map(validationResults.records.map(item => [item.id, item]));
     let clientMap = new Map(validationResults.clientRecords.map(item => [item.id, item]));
-
-    let fullClientData = clientRecords.map(cr => {
-      // make these appear first...
-      let result = { syncGUID: cr.syncGUID, id: cr.id };
-      let keys = Object.keys(Object.getPrototypeOf(cr));
-      for (let key of keys) {
-        if (key in result) {
-          continue;
-        }
-        let val = cr[key];
-        if (val != null && typeof val != "function") {
-          result[key] = cr[key];
-        }
-      }
+    let fullClientData = expandProtoGetters(clientRecords, ["syncGUID", "id"]);
+    fullClientData.forEach(cr => {
       let normed = clientMap.get(cr.syncGUID);
       if (normed) {
-        normed.original = result;
+        normed.original = cr;
+        cr.normalized = normed;
       }
-      return result;
     });
 
-    function describeId(string, id) {
-      return describeIdFull(string, id, clientMap, serverMap);
-    }
-    // This probably should be rethought somewhat, just did the quick thing and removed major duplication,
-    function *generateResults() {
-      let probs = validationResults.problemData;
-      if (probs.missingIDs) {
-        yield React.createElement("p", null, `There are ${probs.missingIDs} records without IDs`);
-      }
-
-      yield describeProblemList(
-        "The following server records appear on the server but not on the client.",
-        probs.clientMissing, serverMap);
-
-      yield describeProblemList(
-        "The following server records appear on the server but should not have been uploaded.",
-        probs.serverUnexpected, serverMap);
-
-      yield describeProblemList(
-        "The following records appear on the client but not on the server.",
-        probs.serverMissing, clientMap);
-
-      yield describeProblemList(
-        "The following records appear on the client but were marked as deleted on the server.",
-        probs.serverDeleted, clientMap);
-
-      if (probs.duplicates.length) {
-        for (let dupeId of probs.duplicates) {
-          let dupes = serverRecords.filter(id => id === dupeId);
-          yield React.createElement("div", null,
-            describeId("The id {id} appears multiple times on the server.", dupeId),
-            createTableInspector(dupes)
-          );
-        }
-      }
-
-      function diffTableEntry(id, field) {
-        return {
-          field,
-          local: clientMap.get(id)[field],
-          server: serverMap.get(id)[field]
-        };
-      }
-
-      for (let { id, differences } of probs.differences) {
-        let diffTable = differences.map(field => diffTableEntry(id, field))
-        let desc = describeId("Record {id} has differences between local and server copies", id);
-        yield React.createElement("div", null,
-          React.createElement("p", null, desc),
-          createTableInspector(diffTable)
-        );
-      }
-    }
-
-
-    let validationElements = [...generateResults()].filter(Boolean);
-    if (validationElements.length == 0) {
-      validationElements = React.createElement("div", null,
-                            React.createElement("p", null, "No validation problems found \\o/"));
-    }
     return {
-      "Validation": validationElements,
+      "Validation": React.createElement(CollValidationResultDisplay, {
+        clientMap,
+        serverMap,
+        problems: validationResults.problemData
+      }),
       "Raw validation results": createObjectInspector("Validation", validationResults),
       "Client Records": createTableInspector(fullClientData),
+    };
+  }),
+
+  passwords: Task.async(function* (provider, serverRecords) {
+    Cu.import("resource://services-sync/engines/passwords.js");
+    if (typeof PasswordValidator == "undefined") {
+      return {
+        "Validation": [React.createElement("p", { key: "update-validation" },
+          "You need to update your browser to see validation results")],
+      };
+    }
+
+    let validator = new PasswordValidator();
+    let clientRecords = yield validator.getClientItems();
+    let validationResults = validator.compareClientWithServer(clientRecords, serverRecords);
+
+    let serverMap = new Map(validationResults.records.map(item => [item.id, item]));
+    let clientMap = new Map(validationResults.clientRecords.map(item => [item.id, item]));
+    let fullClientData = expandProtoGetters(clientRecords, ["guid", "id"]);
+    fullClientData.forEach(cr => {
+      let normed = clientMap.get(cr.guid);
+      if (normed) {
+        normed.original = cr;
+        cr.normalized = normed;
+      }
+    });
+
+    return {
+      "Validation": React.createElement(CollValidationResultDisplay, {
+        clientMap,
+        serverMap,
+        problems: validationResults.problemData
+      }),
+      "Raw validation results": createObjectInspector("Validation", validationResults),
+      "Client Records": createTableInspector(fullClientData),
+    };
+  }),
+
+  forms: Task.async(function* (provider, serverRecords) {
+    Cu.import("resource://services-sync/engines/forms.js");
+    if (typeof FormValidator == "undefined") {
+      return {
+        "Validation": [React.createElement("p", { key: "update-validation" },
+          "You need to update your browser to see validation results")],
+      };
+    }
+
+    let validator = new FormValidator();
+    let clientRecords = yield validator.getClientItems();
+    let validationResults = validator.compareClientWithServer(clientRecords, serverRecords);
+
+    let serverMap = new Map(validationResults.records.map(item => [item.id, item]));
+    let clientMap = new Map(validationResults.clientRecords.map(item => [item.id, item]));
+    return {
+      "Validation": React.createElement(CollValidationResultDisplay, {
+        clientMap,
+        serverMap,
+        problems: validationResults.problemData
+      }),
+      "Raw validation results": createObjectInspector("Validation", validationResults),
+      "Client Records": createTableInspector(clientRecords),
     };
   }),
 
@@ -309,7 +405,7 @@ const collectionComponentBuilders = {
       for (let { parent, child } of probs.missingChildren) {
         let desc = describeId("Server record references child {id} that doesn't exist on the server.", child);
         yield React.createElement("div", null,
-                React.createElement("p", null, desc),
+                React.createElement("p", null, ...desc),
                 createTableInspector([serverMap.get(parent)])
               );
       }
@@ -321,7 +417,7 @@ const collectionComponentBuilders = {
         }
         let desc = describeId("Child record {id} appears as a child in multiple parents", child);
         yield React.createElement("div", null,
-                React.createElement("p", null, desc),
+                React.createElement("p", null, ...desc),
                 createTableInspector(data)
               );
       }
@@ -351,7 +447,7 @@ const collectionComponentBuilders = {
         let desc = describeId("Server-side parent/child mismatch for parent {id} (first) and ", parent)
           .concat(describeId("child {id} (second).", child))
         yield React.createElement("div", null,
-                React.createElement("p", null, desc),
+                React.createElement("p", null, ...desc),
                 createTableInspector([serverMap.get(parent), serverMap.get(child)])
               );
       }
@@ -421,7 +517,7 @@ const collectionComponentBuilders = {
         let diffTable = differences.map(field => diffTableEntry(id, field))
         let desc = describeId("Record {id} has differences between local and server copies", id);
         yield React.createElement("div", null,
-                React.createElement("p", null, desc),
+                React.createElement("p", null, ...desc),
                 createTableInspector(diffTable)
               );
       }
@@ -432,7 +528,7 @@ const collectionComponentBuilders = {
         let diffTable = structuralFields.map(field => diffTableEntry(id, field));
         let desc = describeId("Record {id} has structural differences between local and server copies", id);
         yield React.createElement("div", null,
-                React.createElement("p", null, desc),
+                React.createElement("p", null, ...desc),
                 createTableInspector(diffTable)
               );
       }
@@ -501,6 +597,9 @@ class CollectionViewer extends React.Component {
         if (this.state.additional) {
           for (let title in this.state.additional) {
             let elts = this.state.additional[title];
+            if (!elts[Symbol.iterator] && !Array.isArray(elts)) {
+              elts = [elts];
+            }
             tabs.push(React.createElement(ReactSimpleTabs.Panel, { title }, ...elts));
           }
         } else {
