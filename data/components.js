@@ -238,10 +238,10 @@ const collectionComponentBuilders = {
       }
 
       for (let { parent, child } of probs.parentChildMismatches) {
-        let desc = describeId("Server-side parent/child mismatch for parent {id} (first) and ", parent)
-          .concat(describeId("child {id} (second).", child))
         yield React.createElement("div", null,
-                React.createElement("p", null, desc),
+                React.createElement("p", null,
+                  describeId("Server-side parent/child mismatch for parent {id} (first) and ", parent),
+                  describeId("child {id} (second).", child)),
                 createTableInspector([serverMap.get(parent), serverMap.get(child)])
               );
       }
