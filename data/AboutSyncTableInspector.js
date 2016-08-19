@@ -3,6 +3,7 @@ let AboutSyncTableInspector = (function() {
   const {DOM, PropTypes} = React;
 
   const indexSymbol = Symbol('index');
+  const recordSymbol = Symbol("record");
 
   function safeStringify(obj, replacer, space) {
     try {
@@ -119,6 +120,9 @@ let AboutSyncTableInspector = (function() {
     getColumns(data) {
       let seenColumns = new Set();
       for (let i = 0; i < data.length; ++i) {
+        if (data[i] == null) {
+          continue;
+        }
         let keys = Object.keys(data[i]);
         for (let j = 0; j < keys.length; ++j) {
           seenColumns.add(keys[j]);
@@ -176,6 +180,7 @@ let AboutSyncTableInspector = (function() {
         checkCol(col);
       }
       checkCol(forceStr(indexSymbol));
+      checkCol(forceStr(recordSymbol));
       if (setAny) {
         this.setState({columnWidths: this.state.columnWidths});
       }
@@ -219,9 +224,9 @@ let AboutSyncTableInspector = (function() {
       }
 
       let rowData = data.map((item, index) =>
-        Object.assign({ [indexSymbol]: index }, item));
+        Object.assign({ [indexSymbol]: index, [recordSymbol]: item }, item))
 
-      columns.unshift(indexSymbol);
+      columns = [indexSymbol, recordSymbol].concat(columns);
 
       rowData.sort((a, b) => {
         let aVal = a[columns[this.state.sortBy]];
@@ -240,7 +245,7 @@ let AboutSyncTableInspector = (function() {
 
       let {_cachedColumns: columns, _cachedRows: rowData} = this;
 
-      const {table, colgroup, col, tr, th, tbody, td, div, span} = DOM;
+      const {table, colgroup, col, tr, th, tbody, thead, td, div, span} = DOM;
       let tableStyle = {};
       let haveComputedNaturalWidths = !!this.state.columnWidths[forceStr(indexSymbol)];
       if (haveComputedNaturalWidths) {
@@ -262,7 +267,7 @@ let AboutSyncTableInspector = (function() {
             return col({ style, key: colClass, className: colClass, ref: colClass });
           })
         ),
-        tbody(null,
+        thead(null,
           tr({key: 'heading'},
             columns.map((col, index) => {
               let glyph = "";
@@ -277,15 +282,16 @@ let AboutSyncTableInspector = (function() {
                 style.width = this.state.columnWidths[colName] + "px";
               }
               return th({ style, key: colName, ref: colName + "-header" },
-                span({ onClick: () => this.reorder(index) },
-                colName+glyph),
-                div({
+                span({ onClick: () => this.reorder(index) }, colName + glyph),
+                span({
                   className: "resizer",
                   onMouseDown: e => this._onMouseDown(e, colName)
                 })
               );
             })
-          ),
+          )
+        ),
+        tbody(null,
           ... rowData.map((row, index) =>
             React.createElement(AboutSyncTableInspectorRow, {
               columns,
