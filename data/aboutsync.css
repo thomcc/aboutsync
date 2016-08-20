@@ -164,7 +164,7 @@ html {
 }
 
 .table-inspector th, .table-inspector td {
-  border: 1px solid #eee;
+  border: 1px solid #ccc;
   padding: 0.5em 1em;
   position: relative;
   overflow: hidden;
@@ -173,6 +173,7 @@ html {
 
 .table-inspector th .resizer {
   position: absolute;
+  display: block;
   right: 0;
   top: 0;
   bottom: 0;
@@ -187,7 +188,7 @@ html {
   cursor: ew-resize;
 }
 
-.table-inspector th span {
+.table-inspector th span:not(.resizer) {
   cursor: pointer;
 }
 
@@ -215,11 +216,11 @@ html {
   border-right: 0;
 }
 
-.table-inspector tbody tr:last-child {
+.table-inspector tr:last-child {
   border-bottom: 0;
 }
 
-.table-inspector tbody tr:nth-of-type(2n+1) {
+.table-inspector tr:nth-of-type(2n+1) {
   background-color: #eee;
 }
 
