@@ -737,7 +737,7 @@ class ProviderOptions extends React.Component {
 class ProviderInfo extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { provider: ProviderState.newProvider() };
+    this.state = { provider: ProviderState.newProvider(), anonymize: true };
   }
 
   componentDidMount() {
@@ -761,7 +761,7 @@ class ProviderInfo extends React.Component {
       let fpCallback = result => {
         if (result == nsIFilePicker.returnOK || result == nsIFilePicker.returnReplace) {
           let filename = fp.file.QueryInterface(Ci.nsILocalFile).path;
-          this.state.provider.promiseExport(filename).then(() => {
+          this.state.provider.promiseExport(filename, this.state.anonymize).then(() => {
             alert("File created");
           }).catch(err => {
             console.error("Failed to create file", err);
@@ -781,7 +781,12 @@ class ProviderInfo extends React.Component {
              React.createElement("legend", null, "Data provider options"),
              React.createElement(ProviderOptions, null),
              React.createElement("button", { onClick: onLoadClick }, "Load"),
-             React.createElement("button", { onClick: onExportClick, hidden: !providerIsLocal }, "Export to file...")
+             React.createElement("button", { onClick: onExportClick, hidden: !providerIsLocal }, "Export to file..."),
+             React.createElement("span", { hidden: !providerIsLocal},
+              React.createElement("input", { type: "checkbox", defaultChecked: true,
+                                             onChange: event => this.setState( { anonymize: event.target.checked })
+                                           }, "Anonymize data")
+             )
            );
   }
 }
