@@ -536,7 +536,7 @@ const collectionComponentBuilders = {
 
     // We can't use the tree we generated above as the bookmark validator
     // mutates it.
-    let rawTree = yield yield provider.promiseBookmarksTree();
+    let rawTree = yield provider.promiseBookmarksTree();
     let validationElements = [...generateResults()].filter(Boolean);
     if (validationElements.length == 0) {
       validationElements = [React.createElement("div", null,
