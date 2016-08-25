@@ -461,9 +461,20 @@ const collectionComponentBuilders = {
           createTableInspector(cycle.map(id => serverMap.get(id))));
       }
 
-      yield describeProblemList(
-        "The following server records are orphans.",
-        probs.orphans, serverMap);
+      if (probs.orphans.length) {
+        yield React.createElement("div", null,
+          React.createElement("p", null, "The following server records are orphans"),
+          createTableInspector(probs.orphans.map(({ id, parent }) => ({
+            childID: id,
+            parentID: parent,
+            child: serverMap.get(id),
+            parent: serverMap.get(parent),
+            // hm...
+            clientChild: clientMap.get(id),
+            clientParent: clientMap.get(parent),
+          })))
+        );
+      }
 
       yield describeProblemList(
         "The following server records have deleted parents not deleted but had a deleted parent.",
