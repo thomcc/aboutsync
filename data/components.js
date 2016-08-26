@@ -517,27 +517,34 @@ const collectionComponentBuilders = {
       let structuralDifferenceData = probs.structuralDifferences;
 
       function diffTableEntry(id, field) {
-        return {
+        let result = {
+          id,
           field,
-          local: clientMap.get(id)[field],
-          server: serverMap.get(id)[field]
+          localRecord: clientMap.get(id),
+          serverRecord: serverMap.get(id),
         };
+        if (result.localRecord) {
+          result.localValue = result.localRecord[field];
+        }
+
+        if (result.serverRecord) {
+          result.serverValue = result.serverRecord[field];
+        }
+        return result;
       }
 
       for (let { id, differences } of typicalDifferenceData) {
         let diffTable = differences.map(field => diffTableEntry(id, field))
-        let desc = describeId("Record {id} has differences between local and server copies", id);
+        let desc = describeId("Record {id} has (non-structural) differences between local and server copies", id);
         yield React.createElement("div", null,
                 React.createElement("p", null, ...desc),
                 createTableInspector(diffTable)
               );
       }
 
-      // show all of these for structural differences
-      const structuralFields = ['childGUIDs', 'parentid', 'children', 'parent'];
-      for (let { id } of structuralDifferenceData) {
-        let diffTable = structuralFields.map(field => diffTableEntry(id, field));
-        let desc = describeId("Record {id} has structural differences between local and server copies", id);
+      for (let { id, differences } of structuralDifferenceData) {
+        let diffTable = differences.map(field => diffTableEntry(id, field));
+        let desc = describeId(`Record {id} has structural differences (fields: ${JSON.stringify(differences)}) between local and server copies`, id);
         yield React.createElement("div", null,
                 React.createElement("p", null, ...desc),
                 createTableInspector(diffTable)
@@ -792,9 +799,10 @@ class ProviderInfo extends React.Component {
              React.createElement("button", { onClick: onLoadClick }, "Load"),
              React.createElement("button", { onClick: onExportClick, hidden: !providerIsLocal }, "Export to file..."),
              React.createElement("span", { hidden: !providerIsLocal},
-              React.createElement("input", { type: "checkbox", defaultChecked: true,
-                                             onChange: event => this.setState( { anonymize: event.target.checked })
-                                           }, "Anonymize data")
+              React.createElement("label", null,
+                React.createElement("input", { type: "checkbox", defaultChecked: true,
+                                               onChange: event => this.setState( { anonymize: event.target.checked }) }),
+                "Anonymize data")
              )
            );
   }
