@@ -476,6 +476,17 @@ const collectionComponentBuilders = {
         );
       }
 
+      if (probs.clientCycles && probs.clientCycles.length) {
+        for (let cycle of probs.clientCycles) {
+          let desc = React.createElement("p", null,
+            `Cycle detected through ${cycle.length} items on client`,
+            cycle.map((id, index) =>
+              describeId(`${index ? ":" : " =>"} {id}`)));
+          yield React.createElement("div", null, desc,
+            createTableInspector(cycle.map(id => serverMap.get(id))));
+        }
+      }
+
       yield describeProblemList(
         "The following server records have deleted parents not deleted but had a deleted parent.",
         probs.deletedParents, serverMap);
