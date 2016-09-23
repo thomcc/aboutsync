@@ -206,7 +206,7 @@ class CollValidationResultDisplay extends React.Component {
 
     if (probs.duplicates.length) {
       for (let dupeId of probs.duplicates) {
-        let dupes = serverRecords.filter(id => id === dupeId);
+        let dupes = this.props.serverRecords.filter(r => r.id === dupeId);
         elems.push(div(null,
           this.describeId("The id {id} appears multiple times on the server.", dupeId),
           createTableInspector(dupes)));
@@ -294,6 +294,7 @@ const collectionComponentBuilders = {
       "Validation": React.createElement(CollValidationResultDisplay, {
         clientMap,
         serverMap,
+        serverRecords,
         problems: validationResults.problemData
       }),
       "Raw validation results": createObjectInspector("Validation", validationResults),
@@ -329,6 +330,7 @@ const collectionComponentBuilders = {
       "Validation": React.createElement(CollValidationResultDisplay, {
         clientMap,
         serverMap,
+        serverRecords,
         problems: validationResults.problemData
       }),
       "Raw validation results": createObjectInspector("Validation", validationResults),
@@ -355,6 +357,7 @@ const collectionComponentBuilders = {
       "Validation": React.createElement(CollValidationResultDisplay, {
         clientMap,
         serverMap,
+        serverRecords,
         problems: validationResults.problemData
       }),
       "Raw validation results": createObjectInspector("Validation", validationResults),
