@@ -503,10 +503,6 @@ const collectionComponentBuilders = {
         probs.parentNotFolder, serverMap);
 
       yield describeProblemList(
-        "The following server records had a parentName that did not match the parent's actual name.",
-        probs.wrongParentName, serverMap);
-
-      yield describeProblemList(
         "The following server records were not folders but contained children.",
         probs.childrenOnNonFolder, serverMap);
 
