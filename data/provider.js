@@ -82,11 +82,6 @@ let Providers = (function() {
           let info = Weave.Service._fetchInfo();
           let result = { status: info.status, collections: [] };
           for (let name of Object.keys(info.obj).sort()) {
-            // We skip these 2 collections as they aren't encrypted so must be
-            // rendered differently, and aren't particularly interesting.
-            if (name == "crypto" || name == "meta") {
-              continue;
-            }
             let lastModified = new Date(info.obj[name]);
             let url = Weave.Service.storageURL + name;
             let collectionInfo = { name, lastModified, url };
@@ -107,8 +102,21 @@ let Providers = (function() {
         let records = [];
         let key = Weave.Service.collectionKeys.keyForCollection(info.name);
         collection.recordHandler = record => {
-          record.decrypt(key);
-          records.push(record.cleartext);
+          if (info.name == "crypto") {
+            // We need to decrypt the crypto collection itself with the key bundle.
+            record.decrypt(Weave.Service.identity.syncKeyBundle);
+            records.push(record.cleartext);
+          } else {
+            // All others are decrypted with a key that may be per-collection
+            // (unless there's no ciphertext, in which case there's no decryption
+            // necessary - which is currently just the "meta" collection)
+            if (record.ciphertext) {
+              record.decrypt(key);
+              records.push(record.cleartext);
+            } else {
+              records.push(record.payload);
+            }
+          }
         }
         // Do the actual fetch after an event spin.
         this._collections[info.name] = Promise.resolve().then(() => {

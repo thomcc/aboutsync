@@ -686,11 +686,6 @@ class CollectionsViewer extends React.Component {
     let collections = [];
 
     for (let collection of info.collections) {
-      // We skip these 2 collections as they aren't encrypted so must be
-      // rendered differently, and aren't particularly interesting.
-      if (collection.name == "crypto" || collection.name == "meta") {
-        continue;
-      }
       collections.push(
         React.createElement(CollectionViewer, { provider, info: collection })
       );
