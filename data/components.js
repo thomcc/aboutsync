@@ -491,6 +491,10 @@ const collectionComponentBuilders = {
       }
 
       yield describeProblemList(
+        "The following client roots are either missing or aren't a child of the places root.",
+        probs.badClientRoots, clientMap);
+
+      yield describeProblemList(
         "The following server records have deleted parents not deleted but had a deleted parent.",
         probs.deletedParents, serverMap);
 
