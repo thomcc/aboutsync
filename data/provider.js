@@ -179,8 +179,7 @@ let Providers = (function() {
       "http://str-48/str-49/str-52/str-50?str-53=str-54&str-55=str-42"
       (ie, the general "shape" of the URL remains in place).
 
-      Does NOT touch GUIDs, tags or keywords. Some annotations are also
-      untouched.
+      Does NOT touch GUIDs and some annotations.
     */
     anonymize(exportData) {
       let strings = new Map();
@@ -250,7 +249,7 @@ let Providers = (function() {
           }
         }
       }
-      
+
       // Anonymize a URL search string object
       function anonymizeURLSearchParams(searchParams) {
         // deleting items while iterating confuses things, so fetch all
@@ -271,8 +270,12 @@ let Providers = (function() {
 
       // Do the bookmark tree...
       for (let node of walkTree(exportData.bookmarksTree)) {
-        anonymizeProperties(node, "title");
+        anonymizeProperties(node, "title keyword");
         anonymizeURLProperties(node, "uri iconuri");
+        if (node.tags) {
+          node.tags = node.tags.split(",").map(anonymizeString).join(",");
+        }
+
         if (node.annos) {
           for (let anno of node.annos) {
             switch (anno.name) {
@@ -293,8 +296,11 @@ let Providers = (function() {
       // And the server records - currently focused on bookmarks.
       for (let [collectionName, collection] of Object.entries(exportData.collections)) {
         for (let record of collection.records) {
-          anonymizeProperties(record, "parentName title description");
+          anonymizeProperties(record, "parentName title description keyword");
           anonymizeURLProperties(record, "bmkUri feedUri siteUri");
+          if (record.tags) {
+            record.tags = record.tags.map(anonymizeString);
+          }
         }
       }
     }
