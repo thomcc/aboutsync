@@ -11,6 +11,7 @@
     <em:version>0.0.5</em:version>
     <em:description>Show information about Firefox Sync.</em:description>
     <em:creator>Mark Hammond</em:creator>
+    <em:multiprocessCompatible>true</em:multiprocessCompatible>
     <!-- optional items -->
     <em:homepageURL>https://github.com/mhammond/aboutsync</em:homepageURL>
 
