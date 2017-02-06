@@ -608,8 +608,9 @@ class CollectionViewer extends React.Component {
       // Build up a set of tabs.
       let lastModified = new Date(this.props.info.lastModified);
       // "Summary" tab is first.
+      let numDeleted = this.state.records.filter(r => r.deleted).length;
       let summary = React.createElement("div", null,
-                      React.createElement("p", { className: "collectionSummary" }, `${this.state.records.length} records`),
+                      React.createElement("p", { className: "collectionSummary" }, `${this.state.records.length} records (${numDeleted} deleted)`),
                       React.createElement("span", { className: "collectionSummary" }, " last modified at "),
                       React.createElement("span", { className: "collectionSummary" }, lastModified.toString())
                     );
