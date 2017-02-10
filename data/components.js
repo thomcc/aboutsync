@@ -273,11 +273,29 @@ class CollValidationResultDisplay extends React.Component {
   }
 }
 
+const sqlQueryPref = "extensions.aboutsync.lastQuery";
+
+function getLastQuery() {
+  try {
+    return Services.prefs.getCharPref(sqlQueryPref);
+  } catch (e) {
+    return "select * from moz_bookmarks\nlimit 100";
+  }
+}
+
+function updateLastQuery(query) {
+  try {
+    return Services.prefs.setCharPref(sqlQueryPref, query);
+  } catch (e) {
+    console.warn("Failed to update last query", e);
+  }
+}
+
 class PlacesSqlView extends React.Component {
   constructor() {
     super();
     this.state = {
-      text: "select * from moz_bookmarks",
+      text: getLastQuery(),
       rows: [],
       error: null
     };
@@ -285,16 +303,17 @@ class PlacesSqlView extends React.Component {
 
   executeSql() {
     promiseSql(this.state.text).then(rows => {
-      this.setState(Object.assign(this.state, { rows, error: undefined }))
+      this.setState(Object.assign(this.state, { rows, error: undefined }));
+      updateLastQuery(this.state.text);
     }).catch(error => {
-      this.setState(Object.assign(this.state, { error }))
+      this.setState(Object.assign(this.state, { error }));
     })
   }
 
   renderErrorMsg(error) {
     if (error instanceof Ci.mozIStorageError) {
-      let codeToName = new Map(Object.entries(Ci.mozIStorageError).map(([a, b]) => [b, a]))
-      return `mozIStorageError(${error.result}: ${codeToName.get(error.result)}): ${error.message}`
+      let codeToName = new Map(Object.entries(Ci.mozIStorageError).map(([a, b]) => [b, a]));
+      return `mozIStorageError(${error.result}: ${codeToName.get(error.result)}): ${error.message}`;
     }
     // Be smarter here?
     return String(error);
