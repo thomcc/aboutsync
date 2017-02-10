@@ -38,14 +38,26 @@ function createObjectInspector(name, data, expandLevel = 1) {
   return React.createElement(ReactInspector.ObjectInspector, {name, data, expandLevel: expandLevel });
 }
 
+function valueLookupTable(o) {
+  return new Map(Object.entries(o).map(([k, v]) => [v, k]));
+}
+
 function aboutSyncCellFormatter(cellValue, isExpanded, columnName, owningRow) {
   // It would be nice if we hid form value too, but that would require threading
   // a lot of state through.
   if (!isExpanded && columnName === "password") {
     cellValue = "**** hidden unless expanded ****";
   }
-  return AboutSyncTableInspector.defaultProps.cellFormatter(
+  let defaultFormat = AboutSyncTableInspector.defaultProps.cellFormatter(
     cellValue, isExpanded, columnName, owningRow);
+  if (columnName === "syncStatus") {
+    let descs = valueLookupTable(PlacesUtils.bookmarks.SYNC_STATUS);
+    if (descs.has(+cellValue)) {
+      return React.DOM.span(null, defaultFormat, ` (${descs.get(+cellValue)})`);
+    }
+  }
+
+  return defaultFormat;
 }
 
 function createTableInspector(data) {
@@ -312,7 +324,7 @@ class PlacesSqlView extends React.Component {
 
   renderErrorMsg(error) {
     if (error instanceof Ci.mozIStorageError) {
-      let codeToName = new Map(Object.entries(Ci.mozIStorageError).map(([a, b]) => [b, a]));
+      let codeToName = valueLookupTable(Ci.mozIStorageError);
       return `mozIStorageError(${error.result}: ${codeToName.get(error.result)}): ${error.message}`;
     }
     // Be smarter here?
@@ -498,6 +510,21 @@ const collectionComponentBuilders = {
     let validator = new BookmarkValidator();
     let validationResults = yield Promise.resolve(validator.compareServerWithClient(serverRecords, clientTree));
     let probs = validationResults.problemData;
+
+    // If we're running locally, add syncChangeCounter and syncStatus to the
+    // client records so that it shows up in various tables.
+    if (ProviderState.useLocalProvider) {
+      let rows = yield promiseSql("select syncChangeCounter, syncStatus, guid from moz_bookmarks");
+      let lookup = new Map(rows.map(row => [row.guid, row]));
+      for (let bmark of validationResults.clientRecords) {
+        let item = lookup.get(bmark.guid);
+        if (!item) {
+          continue;
+        }
+        bmark.syncChangeCounter = item.syncChangeCounter;
+        bmark.syncStatus = item.syncStatus;
+      }
+    }
 
     // Turn the list of records into a map keyed by ID.
     let serverMap = new Map(serverRecords.map(item => [item.id, item]));
