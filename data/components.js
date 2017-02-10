@@ -4,6 +4,7 @@ Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/FxAccounts.jsm");
 Cu.import("resource://services-sync/main.js");
 Cu.import("resource://gre/modules/Task.jsm");
+Cu.import("resource://gre/modules/PlacesUtils.jsm");
 
 const weaveService = Cc["@mozilla.org/weave/service;1"]
                      .getService(Ci.nsISupports)
@@ -52,6 +53,42 @@ function createTableInspector(data) {
     data,
     cellFormatter: aboutSyncCellFormatter
   });
+}
+
+function getSqlColumnNames(sql) {
+  // No way to get column names from the async api :(... Bug 1326565.
+  let stmt;
+  try {
+    const db = PlacesUtils.history.QueryInterface(Ci.nsPIPlacesDatabase).DBConnection;
+    stmt = db.createStatement(sql);
+    const columns = [];
+    for (let i = 0; i < stmt.columnCount; ++i) {
+      columns.push(stmt.getColumnName(i));
+    }
+    return columns;
+  } finally {
+    if (stmt) {
+      // Do we need to call both?
+      stmt.reset();
+      stmt.finalize();
+    }
+  }
+}
+
+function promiseSql(sql, params = {}) {
+  let columnNames = getSqlColumnNames(sql);
+  return PlacesUtils.withConnectionWrapper(
+    "AboutSync: promiseSql", Task.async(function*(db) {
+    let rows = yield db.executeCached(sql, params);
+    let resultRows = rows.map(row => {
+      let resultRow = {};
+      for (let columnName of columnNames) {
+        resultRow[columnName] = row.getResultByName(columnName);
+      }
+      return resultRow;
+    });
+    return resultRows; // Return column names too?
+  }));
 }
 
 // A tab-smart "anchor"
@@ -233,6 +270,64 @@ class CollValidationResultDisplay extends React.Component {
       elems.push(p(null, "No validation problems found \\o/"));
     }
     return div(null, ...elems);
+  }
+}
+
+class PlacesSqlView extends React.Component {
+  constructor() {
+    super();
+    this.state = {
+      text: "select * from moz_bookmarks",
+      rows: [],
+      error: null
+    };
+  }
+
+  executeSql() {
+    promiseSql(this.state.text).then(rows => {
+      this.setState(Object.assign(this.state, { rows, error: undefined }))
+    }).catch(error => {
+      this.setState(Object.assign(this.state, { error }))
+    })
+  }
+
+  renderErrorMsg(error) {
+    if (error instanceof Ci.mozIStorageError) {
+      let codeToName = new Map(Object.entries(Ci.mozIStorageError).map(([a, b]) => [b, a]))
+      return `mozIStorageError(${error.result}: ${codeToName.get(error.result)}): ${error.message}`
+    }
+    // Be smarter here?
+    return String(error);
+  }
+
+  closeError() {
+    this.setState(Object.assign(this.state, { error: null }));
+  }
+
+  render() {
+    const { div, button, p, textarea } = React.DOM;
+    return (
+      div({ className: "sql-view" },
+        div({ className: "sql-editor" },
+          textarea({
+            value: this.state.text,
+            // @@TODO: use contenteditable <pre> or something a bit nicer?
+            onChange: e => {
+              this.setState(Object.assign(this.state, { text: e.target.value }));
+            }
+          }),
+          button({ className: "execute-sql", onClick: e => this.executeSql() },
+            "Execute SQL")
+        ),
+        this.state.error && (
+          div({ className: "sql-error" },
+            button({ className: "close-error", onClick: e => this.closeError(), title: "Close" }, "X"),
+            p(null, "Error running SQL: ", this.renderErrorMsg(this.state.error))
+          )
+        ),
+        createTableInspector(this.state.rows)
+      )
+    );
   }
 }
 
@@ -575,6 +670,7 @@ const collectionComponentBuilders = {
       "Raw validation results": [createObjectInspector("Validation", validationResults)],
       "Client Records": [createTableInspector(validationResults.clientRecords)],
       "Client Tree": [createObjectInspector("root", rawTree)],
+      "SQL": [React.createElement(PlacesSqlView)],
     };
   }),
 
