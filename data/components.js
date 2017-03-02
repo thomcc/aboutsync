@@ -88,9 +88,9 @@ function getSqlColumnNames(sql) {
 }
 
 function promiseSql(sql, params = {}) {
-  let columnNames = getSqlColumnNames(sql);
   return PlacesUtils.withConnectionWrapper(
     "AboutSync: promiseSql", Task.async(function*(db) {
+    let columnNames = getSqlColumnNames(sql);
     let rows = yield db.executeCached(sql, params);
     let resultRows = rows.map(row => {
       let resultRow = {};
@@ -315,10 +315,11 @@ class PlacesSqlView extends React.Component {
 
   executeSql() {
     promiseSql(this.state.text).then(rows => {
-      this.setState(Object.assign(this.state, { rows, error: undefined }));
+      let summary = `${rows.length} row(s) returned.`;
+      this.setState(Object.assign(this.state, { rows, error: undefined, summary }));
       updateLastQuery(this.state.text);
     }).catch(error => {
-      this.setState(Object.assign(this.state, { error }));
+      this.setState(Object.assign(this.state, { error, summary: undefined }));
     })
   }
 
@@ -355,6 +356,9 @@ class PlacesSqlView extends React.Component {
             button({ className: "close-error", onClick: e => this.closeError(), title: "Close" }, "X"),
             p(null, "Error running SQL: ", this.renderErrorMsg(this.state.error))
           )
+        ),
+        this.state.summary && (
+          p({ className: "sql-summary" }, this.state.summary)
         ),
         createTableInspector(this.state.rows)
       )
