@@ -113,6 +113,7 @@ const PREFS_TO_RESTORE = [
   "services.sync.log.appender.file.level",
   "services.sync.log.appender.dump",
   "services.sync.log.appender.file.logOnSuccess",
+  "services.sync.log.appender.file.maxErrorAge",
   "services.sync.log.logger.engine.addons",
   "services.sync.log.logger.engine.apps",
   "services.sync.log.logger.engine.bookmarks",

@@ -74,6 +74,36 @@ class PrefCheckbox extends React.Component {
   }
 }
 
+// A textbox that allows a "number of days" pref value that's (poorly) tied
+// to a Firefox preference value.
+class NumDaysInput extends React.Component {
+  constructor(props) {
+    super(props);
+  }
+
+  handleChange(event) {
+    let numberOfDays = parseInt(event.target.value);
+    if (!isNaN(numberOfDays)) {
+      let numberOfSeconds = numberOfDays * 24 * 60 * 60;
+      Preferences.set(this.props.pref, numberOfSeconds);
+    }
+    // The state for these prefs are external (ie, in the Fx prefs store), so
+    // force an update.
+    this.forceUpdate();
+  }
+
+  render() {
+    let numberOfSeconds = Preferences.get(this.props.pref);
+    let numberOfDays = Math.floor(numberOfSeconds / 60 / 60 / 24);
+    let checked = !!Preferences.get(this.props.pref);
+    let props = { type: "text", value: numberOfDays, onChange: event => this.handleChange(event) };
+    return React.createElement("div", null,
+          React.createElement("span", null, this.props.label),
+          React.createElement("input", props)
+    );
+  }
+}
+
 const ENGINE_PREFS = [
   "services.sync.log.logger.engine.addons",
   "services.sync.log.logger.engine.apps",
@@ -101,6 +131,10 @@ class LoggingConfig extends React.Component {
             React.createElement(LogLevelComponent,
                                 { label: "Level of messages written to dump - useful primarily for developers",
                                   prefs: ["services.sync.log.appender.dump"],
+                                }),
+            React.createElement(NumDaysInput,
+                                { label: "Number of days to keep log files for:",
+                                  pref: "services.sync.log.appender.file.maxErrorAge",
                                 }),
             React.createElement(PrefCheckbox,
                                 { label: "Create log files even on success?",
