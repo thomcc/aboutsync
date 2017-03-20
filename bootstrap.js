@@ -1,9 +1,12 @@
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
+Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/AddonManager.jsm");
 Cu.import("resource://gre/modules/Preferences.jsm");
 Cu.import("resource://gre/modules/Log.jsm");
+
+XPCOMUtils.defineLazyServiceGetter(this, "AlertsService", "@mozilla.org/alerts-service;1", "nsIAlertsService");
 
 const INDEX_HTML = "chrome://aboutsync/content/index.html";
 
@@ -152,6 +155,28 @@ function startoverObserver(subject, topic, data) {
   }
 }
 
+// We'll show some UI on certain sync status notifications - currently just
+// errors.
+SYNC_STATUS_TOPICS = [
+  "weave:service:login:error",
+  "weave:service:sync:error",
+];
+
+function syncStatusObserver(subject, topic, data) {
+  let clickCallback = (subject, topic, data) => {
+    if (topic != "alertclickcallback")
+      return;
+    let win = Services.wm.getMostRecentWindow("navigator:browser");
+    if (win) {
+      win.switchToTabHavingURI("about:sync-log", true);
+    } else {
+      log("Failed to find a window to open the log url");
+    }
+  }
+  let body = "about-sync noticed a sync failure - click here to view sync logs";
+  AlertsService.showAlertNotification(null, "Sync Failed", body, true, null, clickCallback);
+}
+
 /*
  * Extension entry points
  */
@@ -168,6 +193,11 @@ function startup(data, reason) {
   // Setup our "pref restorer"
   for (let topic of PREF_RESTORE_TOPICS) {
     Services.obs.addObserver(startoverObserver, topic, false);
+  }
+
+  // We'll display a notification on sync failure.
+  for (let topic of SYNC_STATUS_TOPICS) {
+    Services.obs.addObserver(syncStatusObserver, topic, false);
   }
 
   // Load into any existing windows
@@ -206,6 +236,9 @@ function shutdown(data, reason) {
 
   for (let topic of PREF_RESTORE_TOPICS) {
     Services.obs.removeObserver(startoverObserver, topic);
+  }
+  for (let topic of SYNC_STATUS_TOPICS) {
+    Services.obs.removeObserver(syncStatusObserver, topic);
   }
 }
 
