@@ -159,8 +159,8 @@ function startoverObserver(subject, topic, data) {
 // We'll show some UI on certain sync status notifications - currently just
 // errors.
 SYNC_STATUS_TOPICS = [
-  "weave:service:login:error",
-  "weave:service:sync:error",
+  "weave:ui:login:error",
+  "weave:ui:sync:error",
 ];
 
 function syncStatusObserver(subject, topic, data) {
