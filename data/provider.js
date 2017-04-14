@@ -82,7 +82,7 @@ let Providers = (function() {
           let info = Weave.Service._fetchInfo();
           let result = { status: info.status, collections: [] };
           for (let name of Object.keys(info.obj).sort()) {
-            let lastModified = new Date(info.obj[name]);
+            let lastModified = new Date(+info.obj[name] * 1000);
             let url = Weave.Service.storageURL + name;
             let collectionInfo = { name, lastModified, url };
             result.collections.push(collectionInfo);
