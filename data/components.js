@@ -352,7 +352,7 @@ class PlacesSqlView extends React.Component {
             "Execute SQL")
         ),
         this.state.error && (
-          div({ className: "sql-error" },
+          div({ className: "error-message" },
             button({ className: "close-error", onClick: e => this.closeError(), title: "Close" }, "X"),
             p(null, "Error running SQL: ", this.renderErrorMsg(this.state.error))
           )
@@ -754,12 +754,20 @@ class CollectionViewer extends React.Component {
       // Build up a set of tabs.
       let lastModified = new Date(this.props.info.lastModified);
       // "Summary" tab is first.
-      let numDeleted = this.state.records.filter(r => r.deleted).length;
-      let summary = React.createElement("div", null,
-                      React.createElement("p", { className: "collectionSummary" }, `${this.state.records.length} records (${numDeleted} deleted)`),
-                      React.createElement("span", { className: "collectionSummary" }, " last modified at "),
-                      React.createElement("span", { className: "collectionSummary" }, lastModified.toString())
-                    );
+      let numDeleted = this.state.records.filter(r => r && r.deleted).length;
+      let numNull = this.state.records.filter(r => !r).length;
+      let children = [
+        React.createElement("p", { className: "collectionSummary" }, `${this.state.records.length} records (${numDeleted} deleted)`),
+        React.createElement("span", { className: "collectionSummary" }, " last modified at "),
+        React.createElement("span", { className: "collectionSummary" }, lastModified.toString())
+      ];
+      if (numNull) {
+        children.push(
+          React.createElement("div", { className: "error-message" },
+            React.createElement("p", null,
+              `Collection contains ${numNull} null payloads!`)));
+      }
+      let summary = React.createElement("div", null, ...children);
 
       let tabs = [
         React.createElement(ReactSimpleTabs.Panel, { title: "Summary"}, summary),

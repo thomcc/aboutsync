@@ -250,7 +250,7 @@ html {
   margin: 5px 0px;
 }
 
-.sql-error {
+.error-message {
   background: rgb(255, 128, 128);
   border: 1px solid red;
   margin: 5px;
@@ -259,7 +259,7 @@ html {
   position: relative;
 }
 
-.sql-error .close-error {
+.error-message .close-error {
   position: absolute;
   right: 5px;
   background: 0;
@@ -270,6 +270,6 @@ html {
   cursor: pointer;
 }
 
-.sql-error p {
+.error-message p {
   margin: 0;
 }

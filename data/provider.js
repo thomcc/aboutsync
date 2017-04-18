@@ -10,6 +10,19 @@ let Providers = (function() {
   Cu.import("resource://gre/modules/osfile.jsm");
   Cu.import("resource://gre/modules/PlacesUtils.jsm");
 
+  // This is hacky, but after deserialize is called there's no way for us to
+  // access this data, which represents the original request data, so we patch it.
+  let originalDeserialize = WBORecord.prototype.deserialize;
+  WBORecord.prototype.deserialize = function(json) {
+    this.aboutSync_originalData = json;
+    try {
+      this.aboutSync_originalParsedData = JSON.parse(json);
+    } catch (e) {
+      // It doesn't matter, we already have the original data as a string.
+    }
+    return originalDeserialize.apply(this, arguments);
+  };
+
   // We always clone the data we return as the consumer may modify it (and
   // that's a problem for our "export" functionality - we don't want to write
   // the modified data.
@@ -100,8 +113,10 @@ let Providers = (function() {
         let collection = new Collection(info.url, CryptoWrapper, Weave.Service);
         collection.full = true;
         let records = [];
+        let rawRecords = [];
         let key = Weave.Service.collectionKeys.keyForCollection(info.name);
         collection.recordHandler = record => {
+          rawRecords.push(record);
           if (info.name == "crypto") {
             // We need to decrypt the crypto collection itself with the key bundle.
             record.decrypt(Weave.Service.identity.syncKeyBundle);
@@ -126,7 +141,8 @@ let Providers = (function() {
             url: raw.url,
             status: raw.status,
             success: raw.success,
-            headers: raw.headers
+            headers: raw.headers,
+            records: rawRecords,
           };
           return { response, records };
         });
