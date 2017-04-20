@@ -135,7 +135,8 @@ let Providers = (function() {
         }
         // Do the actual fetch after an event spin.
         this._collections[info.name] = Promise.resolve().then(() => {
-          let raw = collection.get();
+          return collection.get();
+        }).then(raw => {
           // turn it into a vanilla object.
           let response = {
             url: raw.url,
