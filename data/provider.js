@@ -115,7 +115,7 @@ let Providers = (function() {
         let records = [];
         let rawRecords = [];
         let key = Weave.Service.collectionKeys.keyForCollection(info.name);
-        collection.recordHandler = record => {
+        let recordHandler = record => {
           rawRecords.push(record);
           if (info.name == "crypto") {
             // We need to decrypt the crypto collection itself with the key bundle.
@@ -133,20 +133,30 @@ let Providers = (function() {
             }
           }
         }
+        // For some reason I can't get Object.getOwnPropertyDescriptor(collection, "recordHandler")
+        // to tell us if bug 1370985 has landed - so just do it a very hacky
+        // way - we always set .recordHandler and sniff the result to see if
+        // it was actually called or not.
+        collection.recordHandler = recordHandler;
         // Do the actual fetch after an event spin.
         this._collections[info.name] = Promise.resolve().then(() => {
-          if (typeof collection.getBatched == "function") {
-            // Firefox 52+ supports download batching.
-            return collection.getBatched();
+          return collection.getBatched();
+        }).then(result => {
+          let httpresponse;
+          if (result.response) {
+            // OK - bug 1370985 has landed.
+            httpresponse = result.response;
+            response.records.map(recordHandler);
+          } else {
+            // Pre bug 1370985, so the record handler has already been called.
+            httpresponse = result;
           }
-          return collection.get();
-        }).then(raw => {
           // turn it into a vanilla object.
           let response = {
-            url: raw.url,
-            status: raw.status,
-            success: raw.success,
-            headers: raw.headers,
+            url: httpresponse.url,
+            status: httpresponse.status,
+            success: httpresponse.success,
+            headers: httpresponse.headers,
             records: rawRecords,
           };
           return { response, records };
