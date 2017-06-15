@@ -146,7 +146,7 @@ let Providers = (function() {
           if (result.response) {
             // OK - bug 1370985 has landed.
             httpresponse = result.response;
-            response.records.map(recordHandler);
+            result.records.map(recordHandler);
           } else {
             // Pre bug 1370985, so the record handler has already been called.
             httpresponse = result;
