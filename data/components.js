@@ -406,7 +406,7 @@ const collectionComponentBuilders = {
 
     let validator = new AddonValidator(addonsEngine);
     let clientRecords = await validator.getClientItems();
-    let validationResults = validator.compareClientWithServer(clientRecords, serverRecords);
+    let validationResults = await validator.compareClientWithServer(clientRecords, serverRecords);
 
     let serverMap = new Map(validationResults.records.map(item => [item.id, item]));
     let clientMap = new Map(validationResults.clientRecords.map(item => [item.id, item]));
@@ -442,7 +442,7 @@ const collectionComponentBuilders = {
 
     let validator = new PasswordValidator();
     let clientRecords = await validator.getClientItems();
-    let validationResults = validator.compareClientWithServer(clientRecords, serverRecords);
+    let validationResults = await validator.compareClientWithServer(clientRecords, serverRecords);
 
     let serverMap = new Map(validationResults.records.map(item => [item.id, item]));
     let clientMap = new Map(validationResults.clientRecords.map(item => [item.id, item]));
@@ -478,7 +478,7 @@ const collectionComponentBuilders = {
 
     let validator = new FormValidator();
     let clientRecords = await validator.getClientItems();
-    let validationResults = validator.compareClientWithServer(clientRecords, serverRecords);
+    let validationResults = await validator.compareClientWithServer(clientRecords, serverRecords);
 
     let serverMap = new Map(validationResults.records.map(item => [item.id, item]));
     let clientMap = new Map(validationResults.clientRecords.map(item => [item.id, item]));

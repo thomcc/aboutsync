@@ -90,8 +90,8 @@ let Providers = (function() {
       if (!this._info) {
         // Sync's nested event-loop blocking API means we should do the fetch after
         // an event spin.
-        this._info = Promise.resolve().then(() => {
-          let info = Weave.Service._fetchInfo();
+        this._info = (async () => {
+          let info = await Weave.Service._fetchInfo();
           let result = { status: info.status, collections: [] };
           for (let name of Object.keys(info.obj).sort()) {
             let lastModified = new Date(+info.obj[name] * 1000);
@@ -102,7 +102,7 @@ let Providers = (function() {
             this.promiseCollection(collectionInfo);
           }
           return result;
-        });
+        })();
       }
       return this._info.then(result => clone(result));
     }
