@@ -3,7 +3,6 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/FxAccounts.jsm");
 Cu.import("resource://services-sync/main.js");
-Cu.import("resource://gre/modules/Task.jsm");
 Cu.import("resource://gre/modules/PlacesUtils.jsm");
 
 const weaveService = Cc["@mozilla.org/weave/service;1"]
@@ -89,9 +88,9 @@ function getSqlColumnNames(sql) {
 
 function promiseSql(sql, params = {}) {
   return PlacesUtils.withConnectionWrapper(
-    "AboutSync: promiseSql", Task.async(function*(db) {
+    "AboutSync: promiseSql", async function(db) {
     let columnNames = getSqlColumnNames(sql);
-    let rows = yield db.executeCached(sql, params);
+    let rows = await db.executeCached(sql, params);
     let resultRows = rows.map(row => {
       let resultRow = {};
       for (let columnName of columnNames) {
@@ -100,7 +99,7 @@ function promiseSql(sql, params = {}) {
       return resultRow;
     });
     return resultRows; // Return column names too?
-  }));
+  });
 }
 
 // A tab-smart "anchor"
@@ -393,7 +392,7 @@ function expandProtoGetters(arr, prioritizedKeys = []) {
 // Functions that compute additional per-collection components. Return a
 // promise that resolves with an object with key=name, value=react component.
 const collectionComponentBuilders = {
-  addons: Task.async(function* (provider, serverRecords) {
+  async addons(provider, serverRecords) {
     Cu.import("resource://services-sync/engines/addons.js");
     if (typeof AddonValidator == "undefined") {
       return {
@@ -406,7 +405,7 @@ const collectionComponentBuilders = {
     let addonsEngine = Weave.Service.engineManager.get("addons");
 
     let validator = new AddonValidator(addonsEngine);
-    let clientRecords = yield validator.getClientItems();
+    let clientRecords = await validator.getClientItems();
     let validationResults = validator.compareClientWithServer(clientRecords, serverRecords);
 
     let serverMap = new Map(validationResults.records.map(item => [item.id, item]));
@@ -430,9 +429,9 @@ const collectionComponentBuilders = {
       "Raw validation results": createObjectInspector("Validation", validationResults),
       "Client Records": createTableInspector(fullClientData),
     };
-  }),
+  },
 
-  passwords: Task.async(function* (provider, serverRecords) {
+  async passwords(provider, serverRecords) {
     Cu.import("resource://services-sync/engines/passwords.js");
     if (typeof PasswordValidator == "undefined") {
       return {
@@ -442,7 +441,7 @@ const collectionComponentBuilders = {
     }
 
     let validator = new PasswordValidator();
-    let clientRecords = yield validator.getClientItems();
+    let clientRecords = await validator.getClientItems();
     let validationResults = validator.compareClientWithServer(clientRecords, serverRecords);
 
     let serverMap = new Map(validationResults.records.map(item => [item.id, item]));
@@ -466,9 +465,9 @@ const collectionComponentBuilders = {
       "Raw validation results": createObjectInspector("Validation", validationResults),
       "Client Records": createTableInspector(fullClientData),
     };
-  }),
+  },
 
-  forms: Task.async(function* (provider, serverRecords) {
+  async forms(provider, serverRecords) {
     Cu.import("resource://services-sync/engines/forms.js");
     if (typeof FormValidator == "undefined") {
       return {
@@ -478,7 +477,7 @@ const collectionComponentBuilders = {
     }
 
     let validator = new FormValidator();
-    let clientRecords = yield validator.getClientItems();
+    let clientRecords = await validator.getClientItems();
     let validationResults = validator.compareClientWithServer(clientRecords, serverRecords);
 
     let serverMap = new Map(validationResults.records.map(item => [item.id, item]));
@@ -493,9 +492,9 @@ const collectionComponentBuilders = {
       "Raw validation results": createObjectInspector("Validation", validationResults),
       "Client Records": createTableInspector(clientRecords),
     };
-  }),
+  },
 
-  bookmarks: Task.async(function* (provider, serverRecords) {
+  async bookmarks(provider, serverRecords) {
     try {
       Cu.import("resource://services-sync/bookmark_validator.js");
       // Early versions of this module had no "BookmarkProblemData", so check
@@ -510,15 +509,15 @@ const collectionComponentBuilders = {
       }
     }
 
-    let clientTree = yield provider.promiseBookmarksTree();
+    let clientTree = await provider.promiseBookmarksTree();
     let validator = new BookmarkValidator();
-    let validationResults = yield Promise.resolve(validator.compareServerWithClient(serverRecords, clientTree));
+    let validationResults = await Promise.resolve(validator.compareServerWithClient(serverRecords, clientTree));
     let probs = validationResults.problemData;
 
     // If we're running locally, add syncChangeCounter and syncStatus to the
     // client records so that it shows up in various tables.
     if (ProviderState.useLocalProvider) {
-      let rows = yield promiseSql("select syncChangeCounter, syncStatus, guid from moz_bookmarks");
+      let rows = await promiseSql("select syncChangeCounter, syncStatus, guid from moz_bookmarks");
       let lookup = new Map(rows.map(row => [row.guid, row]));
       for (let bmark of validationResults.clientRecords) {
         let item = lookup.get(bmark.guid);
@@ -709,7 +708,7 @@ const collectionComponentBuilders = {
 
     // We can't use the tree we generated above as the bookmark validator
     // mutates it.
-    let rawTree = yield provider.promiseBookmarksTree();
+    let rawTree = await provider.promiseBookmarksTree();
     let validationElements = [...generateResults()].filter(Boolean);
     if (validationElements.length == 0) {
       validationElements = [React.createElement("div", null,
@@ -722,7 +721,7 @@ const collectionComponentBuilders = {
       "Client Tree": [createObjectInspector("root", rawTree)],
       "SQL": [React.createElement(PlacesSqlView)],
     };
-  }),
+  },
 
 }
 

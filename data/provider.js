@@ -5,7 +5,6 @@ let Providers = (function() {
 
   const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
-  Cu.import("resource://gre/modules/Task.jsm");
   Cu.import("resource://services-sync/record.js");
   Cu.import("resource://gre/modules/osfile.jsm");
   Cu.import("resource://gre/modules/PlacesUtils.jsm");
@@ -171,34 +170,32 @@ let Providers = (function() {
       }).then(result => clone(result));
     }
 
-    promiseExport(path, anonymize = true, collections = ["bookmarks"]) {
-      return Task.spawn(function* () {
-        // We need to wait for all collections to complete.
-        let infos = yield this.promiseCollectionInfo();
-        let original = infos.collections;
-        infos.collections = [];
-        for (let ob of original) {
-          if (collections.indexOf(ob.name) >= 0) {
-            infos.collections.push(ob);
-          }
+    async promiseExport(path, anonymize = true, collections = ["bookmarks"]) {
+      // We need to wait for all collections to complete.
+      let infos = await this.promiseCollectionInfo();
+      let original = infos.collections;
+      infos.collections = [];
+      for (let ob of original) {
+        if (collections.indexOf(ob.name) >= 0) {
+          infos.collections.push(ob);
         }
-        let ob = {
-          infos: infos,
-          collections: {},
-        };
-        if (collections.indexOf("bookmarks") >= 0) {
-          ob.bookmarksTree = yield this.promiseBookmarksTree();
-        }
-        for (let info of infos.collections) {
-          let got = yield this.promiseCollection(info);
-          ob.collections[info.name] = got;
-        }
-        if (anonymize) {
-          this.anonymize(ob);
-        }
-        let json = JSON.stringify(ob, undefined, 2); // pretty!
-        return OS.File.writeAtomic(path, json, {encoding: "utf-8", tmpPath: path + ".tmp"});
-      }.bind(this));
+      }
+      let ob = {
+        infos: infos,
+        collections: {},
+      };
+      if (collections.indexOf("bookmarks") >= 0) {
+        ob.bookmarksTree = await this.promiseBookmarksTree();
+      }
+      for (let info of infos.collections) {
+        let got = await this.promiseCollection(info);
+        ob.collections[info.name] = got;
+      }
+      if (anonymize) {
+        this.anonymize(ob);
+      }
+      let json = JSON.stringify(ob, undefined, 2); // pretty!
+      return OS.File.writeAtomic(path, json, {encoding: "utf-8", tmpPath: path + ".tmp"});
     }
 
     /* Perform a quick-and-nasty anonymization of the data. Replaces many

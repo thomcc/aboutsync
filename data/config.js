@@ -175,7 +175,7 @@ class LogFilesComponent extends React.Component {
   // etc.
 
   // But for now it is just a simple .zip file of every log file we could find.
-  downloadZipFile() {
+  async downloadZipFile() {
     let logFilenames = [];
     let zipWriter = Cc["@mozilla.org/zipwriter;1"].createInstance(Ci.nsIZipWriter);
 
@@ -200,26 +200,26 @@ class LogFilesComponent extends React.Component {
     zipWriter.close();
     // Now start the "download" of the file.
     // This seems much more difficult than it should be!
-    Task.spawn(function* () {
-      let downloadsDir = yield Downloads.getPreferredDownloadsDirectory();
-      let filename = yield OS.Path.join(downloadsDir, "aboutsync-logfiles.zip");
+    try {
+      let downloadsDir = await Downloads.getPreferredDownloadsDirectory();
+      let filename = await OS.Path.join(downloadsDir, "aboutsync-logfiles.zip");
       // need to nuke an existing file first.
-      if ((yield OS.File.exists(filename))) {
-        yield OS.File.remove(filename);
+      if ((await OS.File.exists(filename))) {
+        await OS.File.remove(filename);
       }
-      let download = yield Downloads.createDownload({
+      let download = await Downloads.createDownload({
         source: Services.io.newFileURI(zipFile),
         target: filename,
       });
       // Add it to the "downloads" list.
-      let list = yield Downloads.getList(Downloads.PUBLIC);
+      let list = await Downloads.getList(Downloads.PUBLIC);
       list.add(download);
-      yield download.start();
+      await download.start();
       // Show the file in Explorer/Finder/etc
-      yield download.showContainingDirectory();
-    }).catch(err => {
+      await download.showContainingDirectory();
+    } catch(err) {
       console.error("Failed to download zipfile", err);
-    });
+    }
   }
 
   componentDidMount() {
