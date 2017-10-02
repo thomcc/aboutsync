@@ -114,18 +114,18 @@ let Providers = (function() {
         let records = [];
         let rawRecords = [];
         let key = Weave.Service.collectionKeys.keyForCollection(info.name);
-        let recordHandler = record => {
+        let recordHandler = async record => {
           rawRecords.push(record);
           if (info.name == "crypto") {
             // We need to decrypt the crypto collection itself with the key bundle.
-            record.decrypt(Weave.Service.identity.syncKeyBundle);
+            await record.decrypt(Weave.Service.identity.syncKeyBundle);
             records.push(record.cleartext);
           } else {
             // All others are decrypted with a key that may be per-collection
             // (unless there's no ciphertext, in which case there's no decryption
             // necessary - which is currently just the "meta" collection)
             if (record.ciphertext) {
-              record.decrypt(key);
+              await record.decrypt(key);
               records.push(record.cleartext);
             } else {
               records.push(record.payload);
@@ -137,15 +137,18 @@ let Providers = (function() {
         // way - we always set .recordHandler and sniff the result to see if
         // it was actually called or not.
         collection.recordHandler = recordHandler;
-        // Do the actual fetch after an event spin.
-        this._collections[info.name] = Promise.resolve().then(() => {
-          return collection.getBatched();
-        }).then(result => {
+
+        let doFetch = async function() {
+          let result = await collection.getBatched();
           let httpresponse;
           if (result.response) {
             // OK - bug 1370985 has landed.
             httpresponse = result.response;
-            result.records.map(recordHandler);
+            let records = result.records;
+            result.records = [];
+            for (let record of records) {
+              result.records.push(await recordHandler(record));
+            }
           } else {
             // Pre bug 1370985, so the record handler has already been called.
             httpresponse = result;
@@ -159,7 +162,8 @@ let Providers = (function() {
             records: rawRecords,
           };
           return { response, records };
-        });
+        }
+        this._collections[info.name] = doFetch();
       }
       return this._collections[info.name].then(result => clone(result));
     }
