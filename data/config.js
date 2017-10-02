@@ -264,3 +264,34 @@ class LogFilesComponent extends React.Component {
     return React.createElement("fieldset", null, ...details);
   }
 }
+
+// Options for the addon itself.
+class AddonPrefsComponent extends React.Component {
+  constructor(props) {
+    super(props);
+  }
+
+  render() {
+    let details = [React.createElement("legend", null, "Addon Options"),
+                   React.createElement(PrefCheckbox,
+                                   { label: "Hide notification on sync errors?",
+                                     pref: "extensions.aboutsync.hideNotifications",
+                                   }),
+    ];
+    return React.createElement("fieldset", null, ...details);
+  }
+}
+
+// The top-level options.
+class PrefsComponent extends React.Component {
+  constructor(props) {
+    super(props);
+  }
+
+  render() {
+    return React.createElement("div", { className: "logLevel" },
+            React.createElement(LogFilesComponent, null),
+            React.createElement(AddonPrefsComponent, null),
+    );
+  }
+}

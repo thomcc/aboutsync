@@ -1020,8 +1020,8 @@ function render() {
     }
 
     // Render the nodes that exist in any state.
-    ReactDOM.render(React.createElement(LogFilesComponent, null),
-                    document.getElementById('logfiles-info')
+    ReactDOM.render(React.createElement(PrefsComponent, null),
+                    document.getElementById("prefs")
     );
 
     ReactDOM.render(

@@ -174,8 +174,11 @@ function syncStatusObserver(subject, topic, data) {
       log("Failed to find a window to open the log url");
     }
   }
-  let body = "about-sync noticed a sync failure - click here to view sync logs";
-  AlertsService.showAlertNotification(null, "Sync Failed", body, true, null, clickCallback);
+  let hide = Services.prefs.getBoolPref("extensions.aboutsync.hideNotifications", false);
+  if (!hide) {
+    let body = "about-sync noticed a sync failure - click here to view sync logs";
+    AlertsService.showAlertNotification(null, "Sync Failed", body, true, null, clickCallback);
+  }
 }
 
 /*
