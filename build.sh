@@ -27,3 +27,14 @@ $ZIP_CMD $XPI data/react-treeview/build/react-treeview.js
 
 # Report details about what we created.
 find $XPI -maxdepth 1 -printf '%f, %s bytes'
+
+# Now try and sign it!
+# See https://mana.mozilla.org/wiki/display/SVCOPS/Sign+a+Mozilla+Internal+Extension for the gory details,
+# but you will need to have setup a number of environment variables and
+# activated a virtualenv for this to work.
+# XXX - need at least:
+# AWS_ACCESS_KEY_ID, AWS_DEFAULT_REGION, AWS_SECRET_ACCESS_KEY, MOZENV
+
+rm aboutsync-signed.xpi
+sign-xpi -t mozillaextension -e $MOZENV -s net-mozaws-$MOZENV-addons-signxpi-input aboutsync.xpi
+aws s3 cp s3://net-mozaws-$MOZENV-addons-signxpi-output/aboutsync.xpi ./aboutsync-signed.xpi
