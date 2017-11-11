@@ -181,6 +181,44 @@ function syncStatusObserver(subject, topic, data) {
   }
 }
 
+const AboutSyncRedirector = {
+  QueryInterface: XPCOMUtils.generateQI([Ci.nsIAboutModule]),
+  classID: Components.ID("{decc7a05-f6c6-4624-9e58-176c84d032af}"),
+
+  getURIFlags() {
+    // Do we need others?
+    return Ci.nsIAboutModule.ALLOW_SCRIPT;
+  },
+
+  newChannel(aURI, aLoadInfo) {
+    let newURI = Services.io.newURI(INDEX_HTML);
+    let channel = Services.io.newChannelFromURIWithLoadInfo(newURI, aLoadInfo);
+
+    channel.originalURI = aURI;
+
+    return channel;
+  },
+
+  createInstance(outer, iid) {
+    if (outer) {
+      throw Components.results.NS_ERROR_NO_AGGREGATION;
+    }
+    return this.QueryInterface(iid);
+  },
+
+  register() {
+    const contract = "@mozilla.org/network/protocol/about;1?what=sync";
+    const description = "About Sync";
+    Components.manager.QueryInterface(Ci.nsIComponentRegistrar)
+      .registerFactory(this.classID, description, contract, this);
+  },
+
+  unregister() {
+    Components.manager.QueryInterface(Ci.nsIComponentRegistrar)
+      .unregisterFactory(this.classID, this);
+  }
+};
+
 /*
  * Extension entry points
  */
@@ -198,6 +236,7 @@ function startup(data, reason) {
   for (let topic of PREF_RESTORE_TOPICS) {
     Services.obs.addObserver(startoverObserver, topic, false);
   }
+  AboutSyncRedirector.register();
 
   // We'll display a notification on sync failure.
   for (let topic of SYNC_STATUS_TOPICS) {
@@ -220,6 +259,8 @@ function shutdown(data, reason) {
   // up any UI changes made
   if (reason == APP_SHUTDOWN)
     return;
+
+  AboutSyncRedirector.unregister();
 
   let wm = Cc["@mozilla.org/appshell/window-mediator;1"].getService(Ci.nsIWindowMediator);
 
