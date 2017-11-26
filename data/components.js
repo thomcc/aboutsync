@@ -944,7 +944,7 @@ class ProviderInfo extends React.Component {
       let fp = Cc["@mozilla.org/filepicker;1"].createInstance(nsIFilePicker);
       let fpCallback = result => {
         if (result == nsIFilePicker.returnOK || result == nsIFilePicker.returnReplace) {
-          let filename = fp.file.QueryInterface(Ci.nsILocalFile).path;
+          let filename = fp.file.QueryInterface(Ci.nsIFile).path;
           this.state.provider.promiseExport(filename, this.state.anonymize).then(() => {
             alert("File created");
           }).catch(err => {
