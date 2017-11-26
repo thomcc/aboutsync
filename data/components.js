@@ -765,7 +765,8 @@ class CollectionViewer extends React.Component {
       let numNull = this.state.records.filter(r => !r).length;
       let children = [
         React.createElement("p", { className: "collectionSummary" }, `${this.state.records.length} records (${numDeleted} deleted)`),
-        React.createElement("span", { className: "collectionSummary" }, " last modified at "),
+        React.createElement("span", { className: "collectionSummary" }, this.props.info.url),
+        React.createElement("span", { className: "collectionSummary" }, ", last modified at "),
         React.createElement("span", { className: "collectionSummary" }, lastModified.toString())
       ];
       if (numNull) {
