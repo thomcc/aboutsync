@@ -5,7 +5,7 @@ server data for your account. It is designed primarily for Sync developers, or
 advanced users who would like some insights into their Sync data.
 
 Once installed, you can either select "About Sync" from the tools menu, or
-just paste chrome://aboutsync/content/index.html into a tab.
+just type about:sync into the URL bar.
 
 The source code is at https://github.com/mhammond/aboutsync and pull requests
 are welcome!
