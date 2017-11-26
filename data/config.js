@@ -148,12 +148,39 @@ class LoggingConfig extends React.Component {
   }
 }
 
+// Matches logfiles, captures timestamp.
+const LOG_FILE_RE = /^\w+-\w+-(\d+)\.txt$/;
+
+// Format a ms-since-1970 timestamp as a string that will be consistent across
+// locales
+function timestampToTimeString(ts) {
+  // toISOString() throws for invalid dates.
+  try {
+    let d = new Date(+ts);
+    let s = d.toISOString();
+    return s.replace("T", " ").replace("Z", '');
+  } catch (e) {
+    return `<Illegal Date ${ts}>`;
+  }
+}
+
+function formatMS(ts) {
+  let ms = String(ts % 1000).padStart(3, "0");
+  let sec = String(Math.floor(ts / 1000) % 60).padStart(2, "0");
+  let min = String(Math.floor(ts / (1000 * 60)) % 60).padStart(2, "0");
+  let hrs = String(Math.floor(ts / (1000 * 60 * 60))).padStart(2, "0");
+  return `${hrs}:${min}:${sec}.${ms}`;
+}
+
 // The main component for managing log files - also enumerates the file-system
 // for the individual files and can create a .zip file from the,
 class LogFilesComponent extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { logFiles: null };
+    this.state = {
+      logFiles: null,
+      downloadingCombined: null
+    };
   }
 
   // Makes a simple .zip file and "downloads" it.
@@ -201,25 +228,128 @@ class LogFilesComponent extends React.Component {
     // Now start the "download" of the file.
     // This seems much more difficult than it should be!
     try {
-      let downloadsDir = await Downloads.getPreferredDownloadsDirectory();
-      let filename = await OS.Path.join(downloadsDir, "aboutsync-logfiles.zip");
-      // need to nuke an existing file first.
-      if ((await OS.File.exists(filename))) {
-        await OS.File.remove(filename);
-      }
-      let download = await Downloads.createDownload({
-        source: Services.io.newFileURI(zipFile),
-        target: filename,
-      });
-      // Add it to the "downloads" list.
-      let list = await Downloads.getList(Downloads.PUBLIC);
-      list.add(download);
-      await download.start();
-      // Show the file in Explorer/Finder/etc
-      await download.showContainingDirectory();
+      await this.downloadFile(Services.io.newFileURI(zipFile), "aboutsync-logfiles.zip");
     } catch(err) {
       console.error("Failed to download zipfile", err);
     }
+  }
+
+  async downloadFile(sourceFileURI, targetFilename) {
+    let downloadsDir = await Downloads.getPreferredDownloadsDirectory();
+    let filename = await OS.Path.join(downloadsDir, targetFilename);
+    // need to nuke an existing file first.
+    if ((await OS.File.exists(filename))) {
+      await OS.File.remove(filename);
+    }
+    let download = await Downloads.createDownload({
+      source: sourceFileURI,
+      target: filename,
+    });
+    // Add it to the "downloads" list.
+    let list = await Downloads.getList(Downloads.PUBLIC);
+    list.add(download);
+    await download.start();
+    // Show the file in Explorer/Finder/etc
+    await download.showContainingDirectory();
+  }
+
+  // Oldest first, filters out ones that don't match LOG_FILE_RE
+  _getOrderedLogFiles() {
+    return this.state.logFiles.entries
+    .filter(entry => {
+      if (entry.isDir || entry.isSymLink) {
+        return false;
+      }
+      let m = entry.name.match(LOG_FILE_RE);
+      if (!m) {
+        return false;
+      }
+      return !isNaN(+m[1])
+    }).sort((a, b) => {
+      return (+a.name.match(LOG_FILE_RE)[1]) - (+b.name.match(LOG_FILE_RE)[1])
+    });
+  }
+
+  async _downloadCombined() {
+    let files = this._getOrderedLogFiles();
+    this.setState({
+      downloadingCombined: {
+        current: 0,
+        total: files.length
+      }
+    });
+
+    let tmpFileInfo = await OS.File.openUnique(
+      OS.Path.join(OS.Constants.Path.tmpDir, 'aboutsync-combined-log.txt'))
+
+    try {
+      let textEncoder = new TextEncoder();
+      // as in cstdio
+      async function puts(string) {
+        return tmpFileInfo.file.write(textEncoder.encode(string + "\n"));
+      }
+
+      await puts(`Processing ${files.length} files`);
+      let idx = 0;
+      for (let entry of files) {
+        let writeDate = entry.name.match(LOG_FILE_RE)[1];
+        await puts(`\nLog file: ${entry.name} (written on ${timestampToTimeString(writeDate)})`);
+        this.setState({
+          downloadingCombined: {
+            current: ++idx,
+            total: files.length
+          }
+        });
+        let entireFile = await OS.File.read(entry.path, { encoding: "UTF-8" });
+        let entireFileLines = entireFile.split('\n');
+
+        if (entireFileLines.length == 0) {
+          // Shouldn't happen.
+          await puts("File is empty!");
+          continue;
+        }
+
+        // This should usually/always be on the first line.
+        let firstTimestamp = +entireFileLines.find(line => line.split('\t')[0]).split('\t')[0];
+
+        // Fake buffered input. await puts() for each line is far too slow.
+        let outLines = [`First timestamp: ${firstTimestamp} (${timestampToTimeString(firstTimestamp)})`];
+
+        for (let line of entireFileLines) {
+          // Indent these lines so that text editors like sublime text will be
+          // able to collapse the whole file from the sidebar.
+          try {
+            let [ts, ...rest] = line.split('\t');
+            let diff = Number(ts) - firstTimestamp;
+            outLines.push(`  ${timestampToTimeString(ts)} (${formatMS(diff)})    ${rest.join('\t')}`);
+          } catch (e) {
+            outLines.push(`  ${line}`);
+          }
+        }
+        await puts(outLines.join("\n"));
+      }
+    } finally {
+      await tmpFileInfo.file.close();
+    }
+    this.setState({
+      downloadingCombined: {
+        current: files.length,
+        total: files.length
+      }
+    });
+
+    await this.downloadFile(OS.Path.toFileURI(tmpFileInfo.path), "aboutsync-combined-log.txt");
+  }
+
+  async downloadCombined() {
+    try {
+      await this._downloadCombined();
+    } catch (e) {
+      console.error("Failed to download combined", e);
+    }
+    this.setState({
+      downloadingCombined: null
+    });
   }
 
   componentDidMount() {
@@ -241,6 +371,14 @@ class LogFilesComponent extends React.Component {
     });
   }
 
+  _processing(kind, {current, total}) {
+    if (current == total) {
+      return `finishing ${kind}`
+    } else {
+      return `processing ${kind} (${current} / ${total})`
+    }
+  }
+
   render() {
     let logFiles = this.state.logFiles;
     let details = [React.createElement("legend", null, "Log Files")];
@@ -255,7 +393,15 @@ class LogFilesComponent extends React.Component {
       details.push(React.createElement("span", null, " - "));
       details.push(React.createElement(InternalAnchor, { href: "about:sync-log" },
                                        "view them locally"));
-      details.push(React.createElement("span", null, " or "));
+      details.push(React.createElement("span", null, ", "));
+      if (this.state.downloadingCombined) {
+        details.push(React.createElement("span", null,
+          this._processing("combined log file", this.state.downloadingCombined)));
+      } else {
+        details.push(React.createElement("a", { href: "#", onClick: event => this.downloadCombined(event) },
+                                         "download a combined summary"));
+      }
+      details.push(React.createElement("span", null, ", or "));
       details.push(React.createElement("a", { href: "#", onClick: event => this.downloadZipFile(event) },
                                        "download them as a zip file"));
     }
