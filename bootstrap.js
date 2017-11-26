@@ -8,7 +8,17 @@ Cu.import("resource://gre/modules/Log.jsm");
 
 XPCOMUtils.defineLazyServiceGetter(this, "AlertsService", "@mozilla.org/alerts-service;1", "nsIAlertsService");
 
-const INDEX_HTML = "chrome://aboutsync/content/index.html";
+// data: URIs we use with the nsIProcessScriptLoader to register "about:sync"
+// in all processes.
+const DATA_URI_REGISTER_ABOUT = "data:,new " + function() {
+  Components.utils.import("chrome://aboutsync/content/AboutSyncRedirector.js");
+  AboutSyncRedirector.register();
+};
+
+const DATA_URI_UNREGISTER_ABOUT = "data:,new " + function() {
+  Components.utils.import("chrome://aboutsync/content/AboutSyncRedirector.js");
+  AboutSyncRedirector.unregister();
+};
 
 const PREF_VERBOSE = "extensions.aboutsync.verbose";
 let verbose = false;
@@ -38,7 +48,7 @@ function loadIntoWindow(window) {
   menuItem.setAttribute("label", "About Sync");
   menuItem.addEventListener("command", function(event) {
     let win = event.target.ownerDocument.defaultView;
-    let tab = win.gBrowser.addTab(INDEX_HTML, { forceNotRemote: true });
+    let tab = win.gBrowser.addTab("about:sync");
     win.gBrowser.selectedTab = tab;
   }, true);
   let menu = window.document.getElementById("menu_ToolsPopup");
@@ -181,44 +191,6 @@ function syncStatusObserver(subject, topic, data) {
   }
 }
 
-const AboutSyncRedirector = {
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIAboutModule]),
-  classID: Components.ID("{decc7a05-f6c6-4624-9e58-176c84d032af}"),
-
-  getURIFlags() {
-    // Do we need others?
-    return Ci.nsIAboutModule.ALLOW_SCRIPT;
-  },
-
-  newChannel(aURI, aLoadInfo) {
-    let newURI = Services.io.newURI(INDEX_HTML);
-    let channel = Services.io.newChannelFromURIWithLoadInfo(newURI, aLoadInfo);
-
-    channel.originalURI = aURI;
-
-    return channel;
-  },
-
-  createInstance(outer, iid) {
-    if (outer) {
-      throw Components.results.NS_ERROR_NO_AGGREGATION;
-    }
-    return this.QueryInterface(iid);
-  },
-
-  register() {
-    const contract = "@mozilla.org/network/protocol/about;1?what=sync";
-    const description = "About Sync";
-    Components.manager.QueryInterface(Ci.nsIComponentRegistrar)
-      .registerFactory(this.classID, description, contract, this);
-  },
-
-  unregister() {
-    Components.manager.QueryInterface(Ci.nsIComponentRegistrar)
-      .unregisterFactory(this.classID, this);
-  }
-};
-
 /*
  * Extension entry points
  */
@@ -236,7 +208,10 @@ function startup(data, reason) {
   for (let topic of PREF_RESTORE_TOPICS) {
     Services.obs.addObserver(startoverObserver, topic, false);
   }
-  AboutSyncRedirector.register();
+  // Register about:sync in all processes (note we only load in the parent
+  // processes, but child processes need to know the page exists so it can
+  // ask the parent to load it)
+  Services.ppmm.loadProcessScript(DATA_URI_REGISTER_ABOUT, true);
 
   // We'll display a notification on sync failure.
   for (let topic of SYNC_STATUS_TOPICS) {
@@ -260,7 +235,10 @@ function shutdown(data, reason) {
   if (reason == APP_SHUTDOWN)
     return;
 
-  AboutSyncRedirector.unregister();
+  // Stop registering about:sync in new processes.
+  Services.ppmm.removeDelayedProcessScript(DATA_URI_REGISTER_ABOUT);
+  // And unregister about:sync in any processes we've already loaded in.
+  Services.ppmm.loadProcessScript(DATA_URI_UNREGISTER_ABOUT, false);
 
   let wm = Cc["@mozilla.org/appshell/window-mediator;1"].getService(Ci.nsIWindowMediator);
 

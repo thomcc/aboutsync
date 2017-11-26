@@ -17,8 +17,8 @@ The easiest way to develop/debug this is:
 * Clone the git repo locally.
 * In about:debugging, Load the extension by selecting the
   `chrome.manifest` file
-* Open chrome://aboutsync/content/index.html (or use the new "About
-  Sync" entry created in the "Tools" menu)
+* Open `about:sync` (there's also an "About Sync" entry created in the
+  "Tools" menu, which does exactly that)
 * When using the addon this way, you can make changes to the
   HTML/CSS/JS and press the refresh button in the `about:debugging`
   panel. It will be picked up automatically.
