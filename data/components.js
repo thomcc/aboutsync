@@ -841,7 +841,7 @@ class CollectionsViewer extends React.Component {
     }
 
     if (!this.state || !this.state.info) {
-      return React.createElement(Fetching, "Fetching collection info...");
+      return React.createElement(Fetching, { label: "Fetching collection info..." });
     }
 
     let provider = this.props.provider;
