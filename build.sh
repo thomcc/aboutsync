@@ -36,5 +36,8 @@ find $XPI -maxdepth 1 -printf '%f, %s bytes'
 # AWS_ACCESS_KEY_ID, AWS_DEFAULT_REGION, AWS_SECRET_ACCESS_KEY, MOZENV
 
 rm aboutsync-signed.xpi
+echo
+echo Uploading XPI to sign...
 sign-xpi -t mozillaextension -e $MOZENV -s net-mozaws-$MOZENV-addons-signxpi-input aboutsync.xpi
+echo Downloading signed XPI...
 aws s3 cp s3://net-mozaws-$MOZENV-addons-signxpi-output/aboutsync.xpi ./aboutsync-signed.xpi
