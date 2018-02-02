@@ -4,6 +4,8 @@ Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/FxAccounts.jsm");
 Cu.import("resource://services-sync/main.js");
 Cu.import("resource://gre/modules/PlacesUtils.jsm");
+Cu.import("resource://services-sync/util.js");
+Cu.import("resource://services-sync/resource.js");
 
 const weaveService = Cc["@mozilla.org/weave/service;1"]
                      .getService(Ci.nsISupports)
@@ -743,9 +745,11 @@ class CollectionViewer extends React.Component {
   componentDidMount() {
     this.props.provider.promiseCollection(this.props.info).then(result => {
       let { response, records} = result;
+      let originalRecords = records.map(record => Cu.cloneInto(record, {}));
       // run the summary builder that's specific to this collection.
       let additionalBuilder = collectionComponentBuilders[this.props.info.name];
-      this.setState({ response, records, hasAdditional: !!additionalBuilder, additional: null });
+      this.setState({ response, records, originalRecords,
+                      hasAdditional: !!additionalBuilder, additional: null });
       return additionalBuilder ? additionalBuilder(this.props.provider, records) : null;
     }).then(additional => {
       this.setState({ additional });
@@ -804,6 +808,14 @@ class CollectionViewer extends React.Component {
         React.createElement(ReactSimpleTabs.Panel, { title: "Records (object)" },
                             createObjectInspector("Records", this.state.records)),
       ]);
+      if (ProviderState.useLocalProvider) {
+        // Can't edit server records if we can't actually write to the server.
+        tabs.push(React.createElement(ReactSimpleTabs.Panel, { title: "Record Editor (server)" },
+          React.createElement(AboutSyncRecordEditor, {
+            engine: Weave.Service.engineManager.get(this.props.info.name),
+            records: this.state.originalRecords,
+          })))
+      }
       details.push(React.createElement(ReactSimpleTabs, null, ...tabs));
     }
 

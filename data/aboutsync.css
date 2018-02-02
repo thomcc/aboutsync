@@ -236,10 +236,16 @@ html {
   color: green;
 }
 
+.record-select-label {
+  margin: 5px 20px;
+  display: inline-block;
+}
+
+.record-editor textarea,
 .sql-editor textarea {
   display: block;
-  margin: 5px 0px;
-  width: 100%;
+  margin: 5px 20px;
+  width: calc(100% - 40px);
   font-size: 16px;
   border-radius: 3px;
   border: 1px solid rgb(0, 0, 0, 0.3);
