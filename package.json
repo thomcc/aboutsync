@@ -1,0 +1,31 @@
+{
+  "name": "aboutsync",
+  "private": true,
+  "version": "0.19.0",
+  "description": "About Sync Firefox addon",
+  "scripts": {
+    "dev": "webpack --watch",
+    "build-js": "webpack"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mhammond/aboutsync.git"
+  },
+  "author": "Mark Hammond",
+  "license": "MPL-2.0",
+  "bugs": {
+    "url": "https://github.com/mhammond/aboutsync/issues"
+  },
+  "dependencies": {
+    "prop-types": "^15.6.0",
+    "react": "^16.2.0",
+    "react-dom": "^16.2.0",
+    "react-dom-factories": "^1.0.2",
+    "react-inspector": "^2.2.2",
+    "react-simpletabs": "github:pedronauck/react-simpletabs#92d048f",
+    "react-treeview": "^0.4.7"
+  },
+  "devDependencies": {
+    "webpack": "^3.11.0"
+  }
+}

@@ -1,5 +1,15 @@
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
+const React = require("react");
+const ReactDOM = require("react-dom");
+const DOM = require("react-dom-factories");
+const ReactSimpleTabs = require("react-simpletabs");
+
+const { Fetching, ObjectInspector } = require("./common");
+const { AboutSyncTableInspector } = require("./AboutSyncTableInspector")
+const { AboutSyncRecordEditor } = require("./AboutSyncRecordEditor")
+const { ProviderState } = require("./provider");
+
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/FxAccounts.jsm");
 Cu.import("resource://services-sync/main.js");
@@ -7,36 +17,8 @@ Cu.import("resource://gre/modules/PlacesUtils.jsm");
 Cu.import("resource://services-sync/util.js");
 Cu.import("resource://services-sync/resource.js");
 
-const weaveService = Cc["@mozilla.org/weave/service;1"]
-                     .getService(Ci.nsISupports)
-                     .wrappedJSObject;
-
-// Returns a promise that resolves when Sync is ready and logged in.
-function whenSyncReady() {
-  return weaveService.whenLoaded().then(() => {
-    // If we don't have a user we are screwed.
-    return fxAccounts.getSignedInUser();
-  }).then(userData =>  {
-    if (!userData) {
-      return false;
-    }
-    if (Weave.Service.isLoggedIn) {
-      return true;
-    }
-    return new Promise(resolve => {
-      const TOPIC = "weave:service:login:finish";
-      function observe(subject, topic, data) {
-        Services.obs.removeObserver(observe, TOPIC);
-        resolve(true);
-      }
-      Services.obs.addObserver(observe, TOPIC, false);
-      Weave.Service.login();
-    });
-  });
-}
-
 function createObjectInspector(name, data, expandLevel = 1) {
-  return React.createElement(ReactInspector.ObjectInspector, {name, data, expandLevel: expandLevel });
+  return React.createElement(ObjectInspector, {name, data, expandLevel: expandLevel });
 }
 
 function valueLookupTable(o) {
@@ -54,7 +36,7 @@ function aboutSyncCellFormatter(cellValue, isExpanded, columnName, owningRow) {
   if (columnName === "syncStatus") {
     let descs = valueLookupTable(PlacesUtils.bookmarks.SYNC_STATUS);
     if (descs.has(+cellValue)) {
-      return React.DOM.span(null, defaultFormat, ` (${descs.get(+cellValue)})`);
+      return DOM.span(null, defaultFormat, ` (${descs.get(+cellValue)})`);
     }
   }
 
@@ -102,41 +84,6 @@ function promiseSql(sql, params = {}) {
     });
     return resultRows; // Return column names too?
   });
-}
-
-// A tab-smart "anchor"
-class InternalAnchor extends React.Component {
-  onClick(event) {
-    // Get the chrome (ie, browser) window hosting this content.
-    let chromeWindow = window
-         .QueryInterface(Ci.nsIInterfaceRequestor)
-         .getInterface(Ci.nsIWebNavigation)
-         .QueryInterface(Ci.nsIDocShellTreeItem)
-         .rootTreeItem
-         .QueryInterface(Ci.nsIInterfaceRequestor)
-         .getInterface(Ci.nsIDOMWindow)
-         .wrappedJSObject;
-    chromeWindow.switchToTabHavingURI(this.props.href, true, {
-      replaceQueryString: true,
-      ignoreFragment: true,
-    });
-    event.preventDefault();
-  }
-
-  render() {
-    return React.createElement("a",
-                               { href: this.props.href,
-                                 onClick: event => this.onClick(event),
-                               },
-                               this.props.children);
-  }
-}
-
-// A placeholder for when we are still fetching data.
-class Fetching extends React.Component {
-  render() {
-    return React.createElement("p", { className: "fetching" }, this.props.label);
-  }
 }
 
 class AccountInfo extends React.Component {
@@ -231,7 +178,7 @@ class CollValidationResultDisplay extends React.Component {
       this.props.clientMap, this.props.serverMap);
   }
   render() {
-    const { p, div } = React.DOM;
+    const { p, div } = DOM;
     let { problems: probs, clientMap, serverMap } = this.props;
     let elems = [];
     if (probs.missingIDs) {
@@ -338,7 +285,7 @@ class PlacesSqlView extends React.Component {
   }
 
   render() {
-    const { div, button, p, textarea } = React.DOM;
+    const { div, button, p, textarea } = DOM;
     return (
       div({ className: "sql-view" },
         div({ className: "sql-editor" },
@@ -391,6 +338,7 @@ function expandProtoGetters(arr, prioritizedKeys = []) {
     return result;
   });
 }
+
 // Functions that compute additional per-collection components. Return a
 // promise that resolves with an object with key=name, value=react component.
 const collectionComponentBuilders = {
@@ -929,7 +877,6 @@ class ProviderOptions extends React.Component {
   }
 }
 
-
 class ProviderInfo extends React.Component {
   constructor(props) {
     super(props);
@@ -941,6 +888,7 @@ class ProviderInfo extends React.Component {
   }
 
   componentDidUpdate() {
+    // XXX bad
     ReactDOM.render(React.createElement(CollectionsViewer, { provider: this.state.provider }),
                     document.getElementById('collections-info'));
   }
@@ -988,112 +936,7 @@ class ProviderInfo extends React.Component {
   }
 }
 
-// I'm sure this is very un-react-y - I'm just not sure how it should be done.
-let ProviderState = {
-  newProvider() {
-    if (this.useLocalProvider) {
-      return new Providers.LocalProvider();
-    }
-    return new Providers.JSONProvider(this.url);
-  },
-
-  get useLocalProvider() {
-    try {
-      return Services.prefs.getBoolPref("extensions.aboutsync.localProvider");
-    } catch (_) {
-      return true;
-    }
-  },
-
-  set useLocalProvider(should) {
-    Services.prefs.setBoolPref("extensions.aboutsync.localProvider", should);
-  },
-
-  get url() {
-    try {
-      return Services.prefs.getCharPref("extensions.aboutsync.providerURL");
-    } catch (_) {
-      return "";
-    }
-  },
-
-  set url(url) {
-    Services.prefs.setCharPref("extensions.aboutsync.providerURL", url);
-  },
-}
-
-let providerElement;
-
-function refreshProvider() {
-  // At some point this should be able to have the provider use if-modified-since
-  // etc to do the right thing - for now it does a full refresh.
-  providerElement.setState({ provider: ProviderState.newProvider() });
-}
-
-function render() {
-  // I have no idea what I'm doing re element attribute states :)
-  for (let elt of document.querySelectorAll(".state-container")) {
-    elt.setAttribute("data-logged-in", "unknown");
-  }
-  whenSyncReady().then(loggedIn => {
-    for (let elt of document.querySelectorAll(".state-container")) {
-      elt.setAttribute("data-logged-in", loggedIn);
-    }
-
-    // Render the nodes that exist in any state.
-    ReactDOM.render(React.createElement(PrefsComponent, null),
-                    document.getElementById("prefs")
-    );
-
-    ReactDOM.render(
-      React.createElement(InternalAnchor,
-                          { href: "about:preferences#sync"},
-                          "Open Sync Preferences"),
-      document.getElementById('opensyncprefs')
-    );
-
-    if (!loggedIn) {
-      return;
-    }
-    // render the nodes that require us to be logged in.
-    ReactDOM.render(React.createElement(AccountInfo, null),
-                    document.getElementById('account-info')
-    );
-
-    providerElement = ReactDOM.render(React.createElement(ProviderInfo, null),
-                                      document.getElementById('provider-info'));
-
-  }).catch(err => console.error("render() failed", err));
-}
-
-// An observer that supports weak-refs (but kept alive by the window)
-window.myobserver = {
-  QueryInterface: function(iid) {
-    if (!iid.equals(Ci.nsIObserver) &&
-        !iid.equals(Ci.nsISupportsWeakReference) &&
-        !iid.equals(Ci.nsISupports))
-      throw Cr.NS_ERROR_NO_INTERFACE;
-
-    return this;
-  },
-  observe: function(subject, topic, data) {
-    render();
-  }
+module.exports = {
+  ProviderInfo,
+  AccountInfo,
 };
-
-function main() {
-  render();
-
-  const topics = [
-    "fxaccounts:onlogin",
-    "fxaccounts:onverified",
-    "fxaccounts:onlogout",
-    "fxaccounts:update",
-    "fxaccounts:profilechange"
-  ];
-  for (let topic of topics) {
-    Services.obs.addObserver(window.myobserver, topic, true);
-  }
-}
-
-main();

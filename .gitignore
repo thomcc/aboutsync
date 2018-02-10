@@ -1,1 +1,3 @@
 aboutsync*.xpi
+node_modules
+data/build.js

@@ -14,9 +14,13 @@ are welcome!
 
 The easiest way to develop/debug this is:
 
-* Clone the git repo locally.
+* First time setup:
+    * Clone the git repo locally.
+    * Run `npm install` from a command prompt when inside the repo.
+* From a command prompt, run `npm run dev` to start watching
+  files in `src` for changes.
 * In about:debugging, Load the extension by selecting the
-  `chrome.manifest` file
+  `chrome.manifest` file.
 * Open `about:sync` (there's also an "About Sync" entry created in the
   "Tools" menu, which does exactly that)
 * When using the addon this way, you can make changes to the

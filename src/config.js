@@ -1,5 +1,11 @@
 // Components and other code for managing the friendlier Sync prefs management
 // offered by this addon.
+
+const React = require("react");
+const { Fetching, InternalAnchor } = require("./common");
+
+const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
+
 Cu.import("resource://gre/modules/Log.jsm");
 Cu.import("resource://gre/modules/Preferences.jsm");
 Cu.import("resource://gre/modules/FileUtils.jsm");
@@ -441,3 +447,5 @@ class PrefsComponent extends React.Component {
     );
   }
 }
+
+module.exports = { PrefsComponent };

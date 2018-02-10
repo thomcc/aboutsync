@@ -5,14 +5,6 @@
     <base href="chrome://aboutsync/content/index.html">
     <title>About Sync</title>
     <link rel="stylesheet" type="text/css" href="aboutsync.css">
-    <link rel="stylesheet" type="text/css" href="react-treeview/react-treeview.css">
-    <script src="react-0.14.7/build/react.js"></script>
-    <script src="react-0.14.7/build/react-dom.js"></script>
-    <script src="react-inspector/build/react-inspector.js"></script>
-    <script src="react-treeview/build/react-treeview.js"></script>
-    <script src="react-simpletabs/dist/react-simpletabs.js"></script>
-    <script src="AboutSyncTableInspector.js"></script>
-    <script src="AboutSyncRecordEditor.js"></script>
   </head>
 
   <body>
@@ -40,13 +32,11 @@
     <div class="state-container loginstate-true">
       <div class="section">
         <span class="section-heading">Collections</span>
-        <button onclick="refreshProvider();">Refresh</button>
+        <button id="refresh-provider">Refresh</button>
         <div id="collections-info"></div>
       </div>
       <div id="provider-info"></div>
     </div>
-    <script src="provider.js"></script>
-    <script src="components.js"></script>
-    <script src="config.js"></script>
+    <script src="build.js"></script>
   </body>
 </html>
