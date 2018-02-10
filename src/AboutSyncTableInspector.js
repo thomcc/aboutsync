@@ -1,17 +1,17 @@
-'use strict';
+"use strict";
 const React = require("react");
 const PropTypes = require("prop-types");
 const DOM = require("react-dom-factories");
 const { ObjectInspector } = require("./common");
 
-const indexSymbol = Symbol('index');
+const indexSymbol = Symbol("index");
 const recordSymbol = Symbol("record");
 
 function safeStringify(obj, replacer, space) {
   try {
     return JSON.stringify(obj, replacer, space);
   } catch (e) {
-    return '<Recursive (double-click to expand)>';
+    return "<Recursive (double-click to expand)>";
   }
 }
 
@@ -19,7 +19,7 @@ function safeStringify(obj, replacer, space) {
 // what we want (also, ''+someSymbol throws).
 function forceStr(s) {
   let str = String(s);
-  if (typeof s === 'symbol') {
+  if (typeof s === "symbol") {
     return str.slice(6);
   }
   return str;
@@ -34,10 +34,10 @@ function doSortBy(aVal, bVal) {
   if (!(isNaN(parseInt(aVal, 10)) || isNaN(parseInt(bVal, 10)))) {
     return parseInt(aVal, 10) - parseInt(bVal, 10);
   } else {
-    if (typeof(aVal) === 'object') {
+    if (typeof(aVal) === "object") {
       aVal = safeStringify(aVal);
     }
-    if (typeof(bVal) === 'object') {
+    if (typeof(bVal) === "object") {
       bVal = safeStringify(bVal);
     }
     return aVal === bVal ? 0 : (aVal < bVal ? 1 : -1);
@@ -48,10 +48,10 @@ function defaultCellFormatter(cellValue, isExpanded, columnName, owningRow) {
   if (isExpanded) {
     return React.createElement(ObjectInspector, { data: cellValue });
   }
-  let cellString = '';
-  let title = '';
+  let cellString = "";
+  let title = "";
   let cellClass = `table-inspector-${typeof(cellValue)}-cell`
-  if (typeof(cellValue) !== 'undefined') {
+  if (typeof(cellValue) !== "undefined") {
     cellString = safeStringify(cellValue);
     // a multi-line tooltip seems to have different length constraints...
     title = safeStringify(cellValue, undefined, 2);
@@ -69,7 +69,7 @@ class AboutSyncTableInspectorRow extends React.Component {
     return tr(
       {
         onDoubleClick: () => this.setState({ isExpanded: !this.state.isExpanded }),
-        className: this.state.isExpanded ? 'table-inspector-expanded-row' : '',
+        className: this.state.isExpanded ? "table-inspector-expanded-row" : "",
       },
       this.props.columns.map(colName =>
         // Could also pass back 'original' row passed in with data[row[indexSymbol]],
@@ -269,7 +269,7 @@ class AboutSyncTableInspector extends React.Component {
         })
       ),
       thead(null,
-        tr({key: 'heading'},
+        tr({key: "heading"},
           columns.map((col, index) => {
             let glyph = "";
             if (this.state.sortBy === index) {
@@ -315,7 +315,7 @@ AboutSyncTableInspector.propTypes = {
 
 AboutSyncTableInspector.defaultProps = {
   cellFormatter: defaultCellFormatter,
-  className: 'table-inspector',
+  className: "table-inspector",
 };
 
 module.exports = { AboutSyncTableInspector };

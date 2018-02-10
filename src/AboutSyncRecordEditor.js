@@ -200,7 +200,7 @@ class AboutSyncRecordEditor extends React.Component {
       div({ className: "record-editor" },
         textarea({
           value: this.state.text,
-          rows: Math.max(10, this.state.text.split('\n').length + 1),
+          rows: Math.max(10, this.state.text.split("\n").length + 1),
           onChange: e => { this.setState({ text: e.target.value }); }
         }),
         div({ className: "actions" },

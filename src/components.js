@@ -113,17 +113,17 @@ class AccountInfo extends React.Component {
     let raw = [];
     if (this.state.profile) {
       let profile = this.state.profile;
-      avatar.push(React.createElement('img', { src: profile.avatar, className: "avatar" }));
-      info.push(React.createElement('p', null, profile.displayName));
+      avatar.push(React.createElement("img", { src: profile.avatar, className: "avatar" }));
+      info.push(React.createElement("p", null, profile.displayName));
       raw.push(createObjectInspector("Full Profile", profile, 0));
     }
-    info.push(React.createElement('p', null, user.email));
+    info.push(React.createElement("p", null, user.email));
 
     return (
-      React.createElement('div', null,
-        React.createElement('div', { className: "profileContainer" },
-          React.createElement('div', { className: "avatarContainer" }, ...avatar),
-          React.createElement('div', { className: "userInfoContainer" }, ...info)
+      React.createElement("div", null,
+        React.createElement("div", { className: "profileContainer" },
+          React.createElement("div", { className: "avatarContainer" }, ...avatar),
+          React.createElement("div", { className: "userInfoContainer" }, ...info)
         ),
         ...raw
       )
@@ -150,13 +150,13 @@ function describeIdFull(string, id, clientMap, serverMap) {
   if (childItem) {
     descs.push(`Exists locally with title "${childItem.title}"`);
   } else {
-    descs.push(`Does not exist locally`);
+    descs.push("Does not exist locally");
   }
   let serverItem = serverMap.get(id);
   if (serverItem) {
     descs.push(`Exists on the server with title "${serverItem.title}"`);
   } else {
-    descs.push(`Does not exist on the server`);
+    descs.push("Does not exist on the server");
   }
   let desc = descs.join("\n");
   let [left, right] = string.split("{id}");
@@ -623,7 +623,7 @@ const collectionComponentBuilders = {
       yield describeProblemList(
         "The following records appear on the client but were marked as deleted on the server.",
         probs.serverDeleted, clientMap);
-      const structuralDifferenceFields = ['childGUIDs', 'parentid'];
+      const structuralDifferenceFields = ["childGUIDs", "parentid"];
 
       let typicalDifferenceData = probs.differences;
       let structuralDifferenceData = probs.structuralDifferences;
@@ -890,7 +890,7 @@ class ProviderInfo extends React.Component {
   componentDidUpdate() {
     // XXX bad
     ReactDOM.render(React.createElement(CollectionsViewer, { provider: this.state.provider }),
-                    document.getElementById('collections-info'));
+                    document.getElementById("collections-info"));
   }
 
   render() {

@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 // Providers for the data used by the addon.
 // Data can be provided by Sync itself, or by a JSON file.
 
@@ -26,8 +26,8 @@ class JSONProvider extends Provider {
     super("json");
     this._loadPromise = new Promise((resolve, reject) => {
       let request = new XMLHttpRequest();
-      request.open('GET', url, true);
-      request.responseType = 'json';
+      request.open("GET", url, true);
+      request.responseType = "json";
       request.onload = () => {
         let data = request.response;
         if (data) {
@@ -238,7 +238,7 @@ class LocalProvider extends Provider {
         // Manually parse as a URLSearchParams, anonymize the params, and replace
         // the string back into the array
         if (aboutTrailing[0].length > 0) {
-          let aboutParams = new URLSearchParams(aboutTrailing[0].replace(/^\?/, ''));
+          let aboutParams = new URLSearchParams(aboutTrailing[0].replace(/^\?/, ""));
           anonymizeURLSearchParams(aboutParams);
           // We stripped the initial "?" - put it back:
           aboutTrailing[0] = "?" + aboutParams.toString();

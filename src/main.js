@@ -62,7 +62,7 @@ function render() {
       React.createElement(InternalAnchor,
                           { href: "about:preferences#sync"},
                           "Open Sync Preferences"),
-      document.getElementById('opensyncprefs')
+      document.getElementById("opensyncprefs")
     );
 
     if (!loggedIn) {
@@ -70,11 +70,11 @@ function render() {
     }
     // render the nodes that require us to be logged in.
     ReactDOM.render(React.createElement(AccountInfo, null),
-                    document.getElementById('account-info')
+                    document.getElementById("account-info")
     );
 
     providerElement = ReactDOM.render(React.createElement(ProviderInfo, null),
-                                      document.getElementById('provider-info'));
+                                      document.getElementById("provider-info"));
 
   }).catch(err => console.error("render() failed", err));
 }

@@ -164,7 +164,7 @@ function timestampToTimeString(ts) {
   try {
     let d = new Date(+ts);
     let s = d.toISOString();
-    return s.replace("T", " ").replace("Z", '');
+    return s.replace("T", " ").replace("Z", "");
   } catch (e) {
     return `<Illegal Date ${ts}>`;
   }
@@ -286,7 +286,7 @@ class LogFilesComponent extends React.Component {
     });
 
     let tmpFileInfo = await OS.File.openUnique(
-      OS.Path.join(OS.Constants.Path.tmpDir, 'aboutsync-combined-log.txt'))
+      OS.Path.join(OS.Constants.Path.tmpDir, "aboutsync-combined-log.txt"))
 
     try {
       let textEncoder = new TextEncoder();
@@ -307,7 +307,7 @@ class LogFilesComponent extends React.Component {
           }
         });
         let entireFile = await OS.File.read(entry.path, { encoding: "UTF-8" });
-        let entireFileLines = entireFile.split('\n');
+        let entireFileLines = entireFile.split("\n");
 
         if (entireFileLines.length == 0) {
           // Shouldn't happen.
@@ -316,7 +316,7 @@ class LogFilesComponent extends React.Component {
         }
 
         // This should usually/always be on the first line.
-        let firstTimestamp = +entireFileLines.find(line => line.split('\t')[0]).split('\t')[0];
+        let firstTimestamp = +entireFileLines.find(line => line.split("\t")[0]).split("\t")[0];
 
         // Fake buffered input. await puts() for each line is far too slow.
         let outLines = [`First timestamp: ${firstTimestamp} (${timestampToTimeString(firstTimestamp)})`];
@@ -325,9 +325,9 @@ class LogFilesComponent extends React.Component {
           // Indent these lines so that text editors like sublime text will be
           // able to collapse the whole file from the sidebar.
           try {
-            let [ts, ...rest] = line.split('\t');
+            let [ts, ...rest] = line.split("\t");
             let diff = Number(ts) - firstTimestamp;
-            outLines.push(`  ${timestampToTimeString(ts)} (${formatMS(diff)})    ${rest.join('\t')}`);
+            outLines.push(`  ${timestampToTimeString(ts)} (${formatMS(diff)})    ${rest.join("\t")}`);
           } catch (e) {
             outLines.push(`  ${line}`);
           }
