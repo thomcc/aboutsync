@@ -1,9 +1,0 @@
-[submodule "data/react-inspector"]
-	path = data/react-inspector
-	url = https://github.com/xyc/react-inspector
-[submodule "data/react-treeview"]
-	path = data/react-treeview
-	url = https://github.com/chenglou/react-treeview
-[submodule "data/react-simpletabs"]
-	path = data/react-simpletabs
-	url = https://github.com/pedronauck/react-simpletabs.git
