@@ -133,6 +133,10 @@ const PREFS_TO_RESTORE = [
   "services.sync.log.logger.engine.passwords",
   "services.sync.log.logger.engine.prefs",
   "services.sync.log.logger.engine.tabs",
+  // We can't rely on these "new" pref names until Firefox 59, but we can
+  // at least restore them for people setting them manually.
+  "services.sync.log.logger",
+  "services.sync.log.logger.engine",
 ];
 
 let savedPrefs = null;
@@ -148,7 +152,9 @@ function startoverObserver(subject, topic, data) {
       log("Sync is starting over - saving pref values to restore");
       savedPrefs = {};
       for (let pref of PREFS_TO_RESTORE) {
-        savedPrefs[pref] = Preferences.get(pref);
+        if (Preferences.isSet(pref)) {
+          savedPrefs[pref] = Preferences.get(pref);
+        }
       }
       break;
 
