@@ -1,6 +1,5 @@
 "use strict";
 const React = require("react");
-const { select, option, textarea, div, button, p, label } = require("react-dom-factories");
 
 function shortenText(x, maxLen) {
   return x.length >= maxLen ? x.slice(0, maxLen - 1) + "…" : x;
@@ -185,43 +184,50 @@ class AboutSyncRecordEditor extends React.Component {
   }
 
   render() {
-    return div({ className: "record-view" },
-      div({ className: "record-picker" },
-        label({ className: "record-select-label" }, "Select record: ",
-          select({ className: "record-select", value: this.state.selected,
-                   onChange: event => this.selectRecord(event.target.value) },
-            option({ value: PhonyNewRecordID, key: PhonyNewRecordID }, "Create new record"),
-            // TODO: only show a subset for e.g. history?
-            this.props.records.map(record =>
-              option({ value: record.id, key: record.id }, this.recordDesc(record)))
-          )
-        )
-      ),
-      div({ className: "record-editor" },
-        textarea({
-          value: this.state.text,
-          rows: Math.max(10, this.state.text.split("\n").length + 1),
-          onChange: e => { this.setState({ text: e.target.value }); }
-        }),
-        div({ className: "actions" },
-          button({ className: "submit update", onClick: e => this.update(),
-                   disabled: this.state.requesting },
-                 this.state.requesting ? "Thinking..." : "Dangerously update server record"),
-
-          button({ className: "submit delete", onClick: e => this.delete(),
-                   disabled: this.state.requesting },
-                 this.state.requesting ? "Thinking..." : "Dangerously HTTP DELETE")
-          // TODO: Might be cool to have a button for "fill this in wiht the
-          // fields for a tombstone" or for the default fields for those types....
-        )
-      ),
-      this.state.error && (
-        div({ className: "error-message" },
-          button({ className: "close-error", title: "Close",
-                   onClick: e => this.setState({error: null}) }, "X"),
-          p(null, "Error: ", this.state.error)
-        )
-      )
+    return (
+      <div className="record-view">
+        <div className="record-picker">
+          <label className="record-select-label">
+            Select record:
+            <select className="record-select"
+                    value={this.state.selected}
+                    onChange={event => this.selectRecord(event.target.value)}>
+              <option value={PhonyNewRecordID} key={PhonyNewRecordID}>
+                Create new record
+              </option>
+              {this.props.records.map(record =>
+                <option value={record.id} key={record.id}>
+                  {this.recordDesc(record)}
+                </option>)}
+            </select>
+          </label>
+        </div>
+        <div className="record-editor">
+          <textarea value={this.state.text}
+                    rows={Math.max(10, this.state.text.split("\n").length + 1)}
+                    onChange={e => this.setState({ text: e.target.value })}/>
+          <div className="actions">
+            <button className="submit update"
+                    onClick={e => this.update()}
+                    disabled={this.state.requesting}>
+              {this.state.requesting ? "Thinking..." : "Dangerously update server record"}
+            </button>
+            <button className="submit delete"
+                    onClick={e => this.delete()}
+                    disabled={this.state.requesting}>
+              {this.state.requesting ? "Thinking..." : "Dangerously HTTP DELETE"}
+            </button>
+          </div>
+        </div>
+        {this.state.error && (
+          <div className="error-message">
+            <button className="close-error"
+                    title="Close"
+                    onClick={e => this.setState({error: null})}>X</button>
+            <p>Error: {this.state.error}</p>
+          </div>
+        )}
+      </div>
     );
   }
 }

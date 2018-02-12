@@ -1,11 +1,11 @@
 "use strict";
 const React = require("react");
 const PropTypes = require("prop-types");
-const DOM = require("react-dom-factories");
-const { ObjectInspector } = require("./common");
 
 const indexSymbol = Symbol("index");
 const recordSymbol = Symbol("record");
+
+const { ObjectInspector } = require("./common");
 
 function safeStringify(obj, replacer, space) {
   try {
@@ -44,48 +44,51 @@ function doSortBy(aVal, bVal) {
   }
 }
 
-function defaultCellFormatter(cellValue, isExpanded, columnName, owningRow) {
+function defaultCellFormatter(cellValue, isExpanded, columnName, owningRow, sensitive) {
   if (isExpanded) {
-    return React.createElement(ObjectInspector, { data: cellValue });
+    return <ObjectInspector data={cellValue}/>;
+  }
+  if (sensitive.has(columnName) >= 0) {
+    return "**** hidden unless expanded ****";
   }
   let cellString = "";
   let title = "";
-  let cellClass = `table-inspector-${typeof(cellValue)}-cell`
+  let cellClass = `table-inspector-${typeof(cellValue)}-cell`;
   if (typeof(cellValue) !== "undefined") {
     cellString = safeStringify(cellValue);
     // a multi-line tooltip seems to have different length constraints...
     title = safeStringify(cellValue, undefined, 2);
   }
-  return DOM.span({className: cellClass, title }, cellString);
+  return <span className={cellClass} title={title}>{cellString}</span>;
 }
 
-class AboutSyncTableInspectorRow extends React.Component {
+class TableInspectorRow extends React.Component {
   constructor(props) {
     super(props);
     this.state = { isExpanded: false };
   }
   render() {
-    const {tr, td} = DOM;
-    return tr(
-      {
-        onDoubleClick: () => this.setState({ isExpanded: !this.state.isExpanded }),
-        className: this.state.isExpanded ? "table-inspector-expanded-row" : "",
-      },
-      this.props.columns.map(colName =>
-        // Could also pass back 'original' row passed in with data[row[indexSymbol]],
-        // but it's not clear that that's worth doing, especially since then
-        // owningRow[columnName] wouldn't be reliable.
-        td(
-          { key: String(colName) },
-          this.props.cellFormatter(
-            this.props.data[colName], this.state.isExpanded, colName, this.props.data)
-        )
-      )
+    return (
+      <tr className={this.state.isExpanded ? "table-inspector-expanded-row" : ""}
+          onDoubleClick={() => this.setState({ isExpanded: !this.state.isExpanded })}>
+        {this.props.columns.map(colName =>
+          // Could also pass back 'original' row passed in with data[row[indexSymbol]],
+          // but it's not clear that that's worth doing, especially since then
+          // owningRow[columnName] wouldn't be reliable.
+          <td key={String(colName)}>
+            {this.props.cellFormatter(this.props.data[colName],
+                                      this.state.isExpanded,
+                                      colName,
+                                      this.props.data,
+                                      this.props.sensitiveColumns)}
+          </td>
+        )}
+      </tr>
     );
   }
 }
 
-class AboutSyncTableInspector extends React.Component {
+class TableInspector extends React.Component {
   constructor(props) {
     super(props);
     // default sort order is *ascending*, and the default sort key is the index.
@@ -245,8 +248,6 @@ class AboutSyncTableInspector extends React.Component {
     }
 
     let {_cachedColumns: columns, _cachedRows: rowData} = this;
-
-    const {table, colgroup, col, tr, th, tbody, thead, td, div, span} = DOM;
     let tableStyle = {};
     let haveComputedNaturalWidths = !!this.state.columnWidths[forceStr(indexSymbol)];
     if (haveComputedNaturalWidths) {
@@ -255,67 +256,74 @@ class AboutSyncTableInspector extends React.Component {
       // avoid pop-in
       tableStyle.visibility = "hidden";
     }
-    return table(
-      { className: this.props.className, style: tableStyle },
-      colgroup(null,
-        columns.map(c => {
-          let colName = forceStr(c);
-          let colClass = "col-" + colName;
-          let style = {};
-          if (this.state.columnWidths[colName]) {
-            style.width = this.state.columnWidths[colName] + "px";
-          }
-          return col({ style, key: colClass, className: colClass, ref: colClass });
-        })
-      ),
-      thead(null,
-        tr({key: "heading"},
-          columns.map((col, index) => {
-            let glyph = "";
-            if (this.state.sortBy === index) {
-              glyph = this.state.sortOrder > 0 ? " ▼" : " ▲";
-            }
-            let colName = forceStr(col);
+    return (
+      <table className={this.props.className} style={tableStyle}>
+        <colgroup>
+          {columns.map(c => {
+            let colName = forceStr(c);
+            let colClass = "col-" + colName;
             let style = {};
             if (this.state.columnWidths[colName]) {
-              style.minWidth = this.state.columnWidths[colName] + "px";
-              style.maxWidth = this.state.columnWidths[colName] + "px";
               style.width = this.state.columnWidths[colName] + "px";
             }
-            return th({ style, key: colName, ref: colName + "-header" },
-              span({ onClick: () => this.reorder(index) }, colName + glyph),
-              span({
-                className: "resizer",
-                onMouseDown: e => this._onMouseDown(e, colName)
-              })
-            );
-          })
-        )
-      ),
-      tbody(null,
-        ... rowData.map((row, index) =>
-          React.createElement(AboutSyncTableInspectorRow, {
-            columns,
-            key: (row.id || row.guid) + ":" + row[indexSymbol],
-            data: row,
-            cellFormatter: this.props.cellFormatter
-          })
-        )
-      )
+            return <col style={style} key={colClass} className={colClass} ref={colClass}/>;
+          })}
+        </colgroup>
+        <thead>
+          <tr key="heading">
+            {columns.map((col, index) => {
+              let glyph = "";
+              if (this.state.sortBy === index) {
+                glyph = this.state.sortOrder > 0 ? " ▼" : " ▲";
+              }
+              let colName = forceStr(col);
+              let style = {};
+              if (this.state.columnWidths[colName]) {
+                style.minWidth = this.state.columnWidths[colName] + "px";
+                style.maxWidth = this.state.columnWidths[colName] + "px";
+                style.width = this.state.columnWidths[colName] + "px";
+              }
+              return (
+                <th style={style} key={colName} ref={colName + "-header"}>
+                  <span onClick={() => this.reorder(index)}>
+                    {colName + glyph}
+                  </span>
+                  <span className="resizer"
+                        onMouseDown={e => this._onMouseDown(e, colName)}/>
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {rowData.map((row, index) =>
+            <TableInspectorRow
+              columns={columns}
+              key={`${row.id || row.guid}:${row[indexSymbol]}`}
+              data={row}
+              cellFormatter={this.props.cellFormatter}
+              sensitiveColumns={this.props.sensitiveColumns}/>
+          )}
+        </tbody>
+      </table>
     );
   }
 }
 
-AboutSyncTableInspector.propTypes = {
+TableInspector.propTypes = {
   data: PropTypes.array.isRequired,
   columns: PropTypes.array,
   className: PropTypes.string,
   cellFormatter: PropTypes.func,
+  sensitiveColumns: PropTypes.array,
 };
 
-AboutSyncTableInspector.defaultProps = {
+TableInspector.defaultProps = {
   cellFormatter: defaultCellFormatter,
   className: "table-inspector",
+  sensitiveColumns: ["password"]
 };
 
-module.exports = { AboutSyncTableInspector };
+module.exports = {
+  TableInspector: TableInspector
+};

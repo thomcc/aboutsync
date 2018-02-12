@@ -8,6 +8,8 @@ Cu.import("resource://services-sync/record.js");
 Cu.import("resource://gre/modules/osfile.jsm");
 Cu.import("resource://gre/modules/PlacesUtils.jsm");
 
+const React = require("react");
+
 // We always clone the data we return as the consumer may modify it (and
 // that's a problem for our "export" functionality - we don't want to write
 // the modified data.
@@ -18,6 +20,10 @@ function clone(data) {
 class Provider {
   constructor(type) {
     this.type = type;
+  }
+
+  get isLocal() {
+    return this.type == "local";
   }
 }
 
@@ -358,6 +364,113 @@ const ProviderState = {
   },
 }
 
+// Options for what "provider" is used.
+class ProviderOptions extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      local: ProviderState.useLocalProvider,
+      url: ProviderState.url,
+    };
+  }
 
-module.exports = { JSONProvider, LocalProvider, ProviderState };
+  componentWillUpdate(nextProps, nextState) {
+    // XXX - This is not a good way to go about this.
+    ProviderState.useLocalProvider = nextState.local;
+    ProviderState.url = nextState.url;
+  }
+
+  render() {
+    let onLocalClick = event => {
+      this.setState({ local: true });
+    };
+    let onExternalClick = event => {
+      this.setState({ local: false });
+    };
+    let onChooseClick = () => {
+      const nsIFilePicker = Ci.nsIFilePicker;
+      let titleText = "Select local file";
+      let fp = Cc["@mozilla.org/filepicker;1"].createInstance(nsIFilePicker);
+      let fpCallback = result => {
+        if (result == nsIFilePicker.returnOK) {
+          this.setState({ url: fp.fileURL.spec })
+        }
+      }
+      fp.init(window, titleText, nsIFilePicker.modeOpen);
+      fp.appendFilters(nsIFilePicker.filterAll);
+      fp.open(fpCallback);
+    }
+    let onInputChange = event => {
+      this.setState({ url: event.target.value });
+    };
+
+    return (
+      <div>
+        <p>
+          <input type="radio" checked={this.state.local} onChange={onLocalClick}/>
+          <span>Load local sync data</span>
+        </p>
+        <p>
+          <input type="radio" checked={!this.state.local} onChange={onExternalClick}/>
+          <span>Load JSON from URL</span>
+          <span className="provider-extra" hidden={this.state.local}>
+            <input value={this.state.url} onChange={onInputChange} />
+            <button onClick={onChooseClick}>Choose local file...</button>
+          </span>
+        </p>
+      </div>
+    );
+  }
+}
+
+class ProviderInfo extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      anonymize: true
+    };
+  }
+
+  render() {
+    let onExportClick = () => {
+      const nsIFilePicker = Ci.nsIFilePicker;
+      let titleText = "Select name to export the JSON data to";
+      let fp = Cc["@mozilla.org/filepicker;1"].createInstance(nsIFilePicker);
+      let fpCallback = result => {
+        if (result == nsIFilePicker.returnOK || result == nsIFilePicker.returnReplace) {
+          let filename = fp.file.QueryInterface(Ci.nsIFile).path;
+          this.props.provider.promiseExport(filename, this.state.anonymize).then(() => {
+            alert("File created");
+          }).catch(err => {
+            console.error("Failed to create file", err);
+            alert("Failed to create file: " + err);
+          });
+        }
+      }
+
+      fp.init(window, titleText, nsIFilePicker.modeSave);
+      fp.appendFilters(nsIFilePicker.filterAll);
+      fp.open(fpCallback);
+    };
+
+    let providerIsLocal = this.props.provider.isLocal;
+    return (
+      <fieldset>
+        <legend>Data provider options</legend>
+        <ProviderOptions />
+        <button onClick={() => this.props.updateProvider()}>Load</button>
+        <button onClick={onExportClick} hidden={!providerIsLocal}>Export to file...</button>
+        <span hidden={providerIsLocal}>
+          <label>
+            <input type="checkbox" defaultChecked={true}
+                   onChange={ev => this.setState({anonymize: event.target.checked})}/>
+            Anonymize data
+          </label>
+        </span>
+      </fieldset>
+    );
+  }
+}
+
+module.exports = { JSONProvider, LocalProvider, ProviderState, ProviderInfo };
 

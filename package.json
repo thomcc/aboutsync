@@ -26,6 +26,9 @@
     "react-treeview": "^0.4.7"
   },
   "devDependencies": {
+    "babel-core": "^6.26.0",
+    "babel-loader": "^7.1.2",
+    "babel-preset-react": "^6.24.1",
     "webpack": "^3.11.0"
   }
 }

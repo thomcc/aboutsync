@@ -15,10 +15,6 @@ Cu.import("resource://gre/modules/Downloads.jsm");
 // For our "Sync Preferences" support.
 // A "log level" <select> element.
 class LogLevelSelectComponent extends React.Component {
-  constructor(props) {
-    super(props);
-  }
-
   handleChange(event) {
     for (let pref of this.props.prefs) {
       Preferences.set(pref, event.target.value);
@@ -34,35 +30,29 @@ class LogLevelSelectComponent extends React.Component {
     let prefName = this.props.prefs[0];
     let prefValue = Preferences.get(prefName);
     let names = Object.keys(Log.Level).filter(n => typeof Log.Level[n] == "number");
-    let options = names.map(n => React.createElement("option", { value: n}, n));
-    return React.createElement("select",
-                               { onChange: event => this.handleChange(event),
-                                 value: prefValue },
-                               ...options);
+    return (
+      <select value={prefValue} onChange={event => this.handleChange(event)}>
+        {names.map(n =>
+          <option value={n} key={n}>{n}</option>
+        )}
+      </select>
+    );
   }
 }
 
-class LogLevelComponent extends React.Component {
-  constructor(props) {
-    super(props);
-  }
-
-  render() {
-    return React.createElement("div", { className: "logLevel" },
-            React.createElement("span", null, this.props.label),
-            React.createElement(LogLevelSelectComponent, { prefs: this.props.prefs })
-    );
-  }
+function LogLevelComponent({prefs, label}) {
+  return (
+    <div className="logLevel">
+      <span>{label}</span>
+      <LogLevelSelectComponent prefs={prefs}/>
+    </div>
+  );
 }
 
 // A checkbox that's (poorly) tied to a Firefox preference value.
 // Ideally we'd use an observer and be better integrated with react's state
 // support so these update on-the-fly if changed externally - later!
 class PrefCheckbox extends React.Component {
-  constructor(props) {
-    super(props);
-  }
-
   handleChange(event) {
     Preferences.set(this.props.pref, event.target.checked);
     // The state for these prefs are external (ie, in the Fx prefs store), so
@@ -72,10 +62,13 @@ class PrefCheckbox extends React.Component {
 
   render() {
     let checked = !!Preferences.get(this.props.pref);
-    let props = { type: "checkbox", defaultChecked: checked, onChange: event => this.handleChange(event) };
-    return React.createElement("div", null,
-          React.createElement("input", props),
-          React.createElement("span", null, this.props.label)
+    return (
+      <div>
+        <input type="checkbox"
+               checked={checked}
+               onChange={event => this.handleChange(event)}/>
+        <span>{this.props.label}</span>
+      </div>
     );
   }
 }
@@ -83,10 +76,6 @@ class PrefCheckbox extends React.Component {
 // A textbox that allows a "number of days" pref value that's (poorly) tied
 // to a Firefox preference value.
 class NumDaysInput extends React.Component {
-  constructor(props) {
-    super(props);
-  }
-
   handleChange(event) {
     let numberOfDays = parseInt(event.target.value);
     if (!isNaN(numberOfDays)) {
@@ -103,9 +92,11 @@ class NumDaysInput extends React.Component {
     let numberOfDays = Math.floor(numberOfSeconds / 60 / 60 / 24);
     let checked = !!Preferences.get(this.props.pref);
     let props = { type: "text", value: numberOfDays, onChange: event => this.handleChange(event) };
-    return React.createElement("div", null,
-          React.createElement("span", null, this.props.label),
-          React.createElement("input", props)
+    return (
+      <div>
+        <span>{this.props.label}</span>
+        <input type="text" value={numberOfDays} onChange={event => this.handleChange(event)}/>
+      </div>
     );
   }
 }
@@ -125,31 +116,26 @@ const ENGINE_PREFS = [
 // The general "logging config" component.
 class LoggingConfig extends React.Component {
   render() {
-    return React.createElement("div", null,
-            React.createElement(LogLevelComponent,
-                                { label: "Level of messages written by Sync engines",
-                                  prefs: ENGINE_PREFS,
-                                }),
-            React.createElement(LogLevelComponent,
-                                { label: "Level of messages written to about:sync-logs log files",
-                                  prefs: ["services.sync.log.appender.file.level"],
-                                }),
-            React.createElement(LogLevelComponent,
-                                { label: "Level of messages written to dump - useful primarily for developers",
-                                  prefs: ["services.sync.log.appender.dump"],
-                                }),
-            React.createElement(NumDaysInput,
-                                { label: "Number of days to keep log files for:",
-                                  pref: "services.sync.log.appender.file.maxErrorAge",
-                                }),
-            React.createElement(PrefCheckbox,
-                                { label: "Create log files even on success?",
-                                  pref: "services.sync.log.appender.file.logOnSuccess",
-                                }),
-            React.createElement(PrefCheckbox,
-                                { label: "Remember these values when Sync is reconfigured?",
-                                  pref: "extensions.aboutsync.applyOnStartOver",
-                                })
+    return (
+      <div>
+         <LogLevelComponent label="Level of messages written by Sync engines"
+                            prefs={ENGINE_PREFS}/>
+
+         <LogLevelComponent label="Level of messages written to about:sync-logs log files"
+                            prefs={["services.sync.log.appender.file.level"]}/>
+
+         <LogLevelComponent label="Level of messages written to dump - useful primarily for developers"
+                            prefs={["services.sync.log.appender.dump"]}/>
+
+         <NumDaysInput label="Number of days to keep log files for:"
+                       pref="services.sync.log.appender.file.maxErrorAge"/>
+
+         <PrefCheckbox label="Create log files even on success?"
+                       pref="services.sync.log.appender.file.logOnSuccess"/>
+
+         <PrefCheckbox label="Remember these values when Sync is reconfigured?"
+                       pref="extensions.aboutsync.applyOnStartOver"/>
+      </div>
     );
   }
 }
@@ -385,67 +371,66 @@ class LogFilesComponent extends React.Component {
     }
   }
 
-  render() {
+  renderSummary() {
     let logFiles = this.state.logFiles;
-    let details = [React.createElement("legend", null, "Log Files")];
-    if (logFiles == null) {
-      details.push(React.createElement(Fetching, { label: "Looking for log files..." }));
-    } else if (!logFiles.entries.length) {
-      details.push(React.createElement("span", null, "No news is good news; there are no log files"));
-    } else {
-      // summarize them - by default, they will all be errors.
-      details.push(React.createElement("span", null,
-                                       `${logFiles.numErrors} error logs, ${logFiles.entries.length} in total`));
-      details.push(React.createElement("span", null, " - "));
-      details.push(React.createElement(InternalAnchor, { href: "about:sync-log" },
-                                       "view them locally"));
-      details.push(React.createElement("span", null, ", "));
-      if (this.state.downloadingCombined) {
-        details.push(React.createElement("span", null,
-          this._processing("combined log file", this.state.downloadingCombined)));
-      } else {
-        details.push(React.createElement("a", { href: "#", onClick: event => this.downloadCombined(event) },
-                                         "download a combined summary"));
-      }
-      details.push(React.createElement("span", null, ", or "));
-      details.push(React.createElement("a", { href: "#", onClick: event => this.downloadZipFile(event) },
-                                       "download them as a zip file"));
+    if (!logFiles) {
+      return <Fetching label="Looking for log files..."/>;
     }
-    details.push(React.createElement(LoggingConfig, null));
+    if (!logFiles.entries.length) {
+      return <span>No news is good news; there are no log files</span>;
+    }
+    // summarize them - by default, they will all be errors.
+    return (
+      // We probably don't actually need to use a Fragment here.
+      <div>
+        <span>{logFiles.numErrors} error logs, {logFiles.entries.length} in total - </span>
+        <InternalAnchor href="about:sync-log">view them locally</InternalAnchor>
+        <span>, </span>
+        {this.state.downloadingCombined ? (
+          <span>{this._processing("combined log file", this.state.downloadingCombined)}</span>
+        ) : (
+          <a href="#" onClick={event => this.downloadCombined(event)}>
+            download a combined summary
+          </a>
+        )}
+        <span>, or </span>
+        <a href="#" onClick={event => this.downloadZipFile(event)}>
+          download them as a zip file
+        </a>
+      </div>
+    );
+  }
 
-    return React.createElement("fieldset", null, ...details);
+  render() {
+    return (
+      <fieldset>
+        <legend>Log Files</legend>
+        {this.renderSummary()}
+        <LoggingConfig/>
+      </fieldset>
+    );
   }
 }
 
 // Options for the addon itself.
-class AddonPrefsComponent extends React.Component {
-  constructor(props) {
-    super(props);
-  }
-
-  render() {
-    let details = [React.createElement("legend", null, "Addon Options"),
-                   React.createElement(PrefCheckbox,
-                                   { label: "Hide notification on sync errors?",
-                                     pref: "extensions.aboutsync.hideNotifications",
-                                   }),
-    ];
-    return React.createElement("fieldset", null, ...details);
-  }
+function AddonPrefsComponent() {
+  return (
+    <fieldset>
+      <legend>Addon Options</legend>
+      <PrefCheckbox label="Hide notification on sync errors"
+                    pref="extensions.aboutsync.hideNotifications"/>
+    </fieldset>
+  );
 }
 
 // The top-level options.
-class PrefsComponent extends React.Component {
-  constructor(props) {
-    super(props);
-  }
-
-  render() {
-    return React.createElement("div", { className: "logLevel" },
-            React.createElement(LogFilesComponent, null),
-            React.createElement(AddonPrefsComponent, null),
-    );
-  }
+function PrefsComponent() {
+  return (
+    <div className="logLevel">
+      <LogFilesComponent/>
+      <AddonPrefsComponent/>
+    </div>
+  );
 }
 
 module.exports = { PrefsComponent };
