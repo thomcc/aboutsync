@@ -151,6 +151,9 @@ class TableInspector extends React.Component {
     event.preventDefault();
     let {currentDragTarget, dragTargetStartWidth, dragTargetStartX, columnWidths} = this.state;
     let newWidth = dragTargetStartWidth+(event.clientX-dragTargetStartX);
+    if (newWidth < 45) {
+      newWidth = 45;
+    }
     columnWidths[currentDragTarget] = newWidth;
     // hacky: avoid the setState to avoid full rerender, and just update in place...
 
@@ -175,7 +178,7 @@ class TableInspector extends React.Component {
     let setAny = false;
     let checkCol = (col) => {
       if (!this.state.columnWidths[col]) {
-        this.state.columnWidths[col] = Math.min(300,
+        this.state.columnWidths[col] = Math.min(150,
           this.refs[forceStr(col) + "-header"].offsetWidth + 2); // 1px borders padding
         setAny = true;
       }

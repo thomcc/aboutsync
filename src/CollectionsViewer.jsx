@@ -82,6 +82,12 @@ async function basicBuilder(validator, serverRecords, expandData = false, priori
 const collectionComponentBuilders = {
   async addons(provider, serverRecords) {
     let validator = new AddonValidator(Weave.Service.engineManager.get("addons"));
+    // hacky...
+    let origGetClientItems = validator.getClientItems;
+    validator.getClientItems = async function() {
+      let items = await origGetClientItems.call(this);
+      return items.filter(item => item.type !== "plugin");
+    };
     return basicBuilder(validator, serverRecords, true, ["syncGUID", "id"]);
   },
 
@@ -199,6 +205,10 @@ class CollectionViewer extends React.Component {
   }
 
   renderSummary() {
+    let totalRecords = this.state.records.length;
+    if (this.props.fullInfo && this.props.fullInfo.collectionCounts) {
+      totalRecords = this.props.fullInfo.collectionCounts[this.props.info.name];
+    }
     let lastModified = new Date(this.props.info.lastModified);
     let numDeleted = this.state.records.filter(r => r && r.deleted).length;
     let numNull = this.state.records.filter(r => !r).length;
@@ -206,10 +216,14 @@ class CollectionViewer extends React.Component {
     return (
       <div>
         <p className="collectionSummary">
-          {this.state.records.length} records ({numDeleted} deleted)
+          {this.state.records.length == totalRecords ? (
+            `Downloaded all ${this.state.records.length} records (${numDeleted} deleted)`
+          ) : (
+            `Downloaded ${this.state.records.length} out of ${totalRecords} records (saw ${numDeleted} deleted)`
+          )}
         </p>
         <p className="collectionSummary">
-          {this.props.info.url}, last modified at {lastModified.toString()}
+          from {this.props.info.url}, last modified at {lastModified.toString()}
         </p>
         {numNull > 0 && (
           <div className="error-message">
@@ -314,7 +328,7 @@ class CollectionsViewer extends React.Component {
       <div>
         <p key="status-msg">Status: {info.status}</p>
         {info.collections.map(collection =>
-          <CollectionViewer provider={provider} info={collection} key={collection.name} />)}
+          <CollectionViewer provider={provider} info={collection} key={collection.name} fullInfo={info} />)}
       </div>
     );
   }

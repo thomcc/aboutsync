@@ -4,6 +4,7 @@
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 const { importLocal } = require("./common");
+const { PrefCheckbox } = require("./config");
 
 const { Weave } = importLocal("resource://services-sync/main.js");
 
@@ -34,26 +35,7 @@ class Provider {
 class JSONProvider extends Provider {
   constructor(url) {
     super("json");
-    this._loadPromise = new Promise((resolve, reject) => {
-      let request = new XMLHttpRequest();
-      request.open("GET", url, true);
-      request.responseType = "json";
-      request.onload = () => {
-        let data = request.response;
-        if (data) {
-          resolve(data);
-        } else {
-          reject("No JSON could be loaded from " + url);
-        }
-      }
-      request.onerror = err => {
-        reject("Could not load the JSON: " + err);
-      }
-      request.onabort = err => {
-        reject("JSON load was aborted: " + err);
-      }
-      request.send();
-    });
+    this._loadPromise = fetch(url).then(resp => resp.json());
   }
 
   promiseCollectionInfo() {
@@ -88,7 +70,9 @@ class LocalProvider extends Provider {
       // an event spin.
       this._info = (async () => {
         let info = await Weave.Service._fetchInfo();
-        let result = { status: info.status, collections: [] };
+        const collCountURL = Weave.Service.userBaseURL + "info/collection_counts";
+        let collectionCounts = (await Weave.Service._fetchInfo(collCountURL)).obj;
+        let result = { status: info.status, collections: [], collectionCounts };
         for (let name of Object.keys(info.obj).sort()) {
           let lastModified = new Date(+info.obj[name] * 1000);
           let url = Weave.Service.storageURL + name;
@@ -103,10 +87,19 @@ class LocalProvider extends Provider {
     return this._info.then(result => clone(result));
   }
 
+  get limitHistoryFetch() {
+    return Services.prefs.getBoolPref("extensions.aboutsync.limitHistoryFetch", true);
+  }
+
   promiseCollection(info) {
     if (!this._collections[info.name]) {
       let collection = new Collection(info.url, CryptoWrapper, Weave.Service);
       collection.full = true;
+      if (info.name == "history" && this.limitHistoryFetch) {
+        // Hacky, but downloading all history makes everything so hard to use...
+        collection.limit = 5000;
+        collection.sort = "index";
+      }
       let records = [];
       let rawRecords = [];
       let key = Weave.Service.collectionKeys.keyForCollection(info.name);
@@ -380,6 +373,7 @@ class ProviderOptions extends React.Component {
 
   componentWillUpdate(nextProps, nextState) {
     // XXX - This is not a good way to go about this.
+    console.log(nextState);
     ProviderState.useLocalProvider = nextState.local;
     ProviderState.url = nextState.url;
   }
@@ -411,12 +405,21 @@ class ProviderOptions extends React.Component {
     return (
       <div>
         <p>
-          <input type="radio" checked={this.state.local} onChange={onLocalClick}/>
-          <span>Load local sync data</span>
+          <label>
+            <input type="radio" checked={this.state.local} onChange={onLocalClick}/>
+            Load local sync data
+          </label>
+          <span className="provider-extra" hidden={!this.state.local}>
+            <PrefCheckbox label="Limit history engine fetch to first 5000 records?"
+                          pref="extensions.aboutsync.limitHistoryFetch"
+                          defaultValue={true}/>
+          </span>
         </p>
         <p>
-          <input type="radio" checked={!this.state.local} onChange={onExternalClick}/>
-          <span>Load JSON from URL</span>
+          <label>
+            <input type="radio" checked={!this.state.local} onChange={onExternalClick}/>
+            Load JSON from URL
+          </label>
           <span className="provider-extra" hidden={this.state.local}>
             <input value={this.state.url} onChange={onInputChange} />
             <button onClick={onChooseClick}>Choose local file...</button>

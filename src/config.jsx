@@ -62,14 +62,14 @@ class PrefCheckbox extends React.Component {
   }
 
   render() {
-    let checked = !!Preferences.get(this.props.pref);
+    let checked = !!Preferences.get(this.props.pref, this.props.defaultValue);
     return (
-      <div>
+      <label>
         <input type="checkbox"
                checked={checked}
                onChange={event => this.handleChange(event)}/>
-        <span>{this.props.label}</span>
-      </div>
+        {this.props.label}
+      </label>
     );
   }
 }
@@ -95,8 +95,10 @@ class NumDaysInput extends React.Component {
     let props = { type: "text", value: numberOfDays, onChange: event => this.handleChange(event) };
     return (
       <div>
-        <span>{this.props.label}</span>
-        <input type="text" value={numberOfDays} onChange={event => this.handleChange(event)}/>
+        <label>
+          {this.props.label}
+          <input type="text" value={numberOfDays} onChange={event => this.handleChange(event)}/>
+        </label>
       </div>
     );
   }
@@ -119,23 +121,27 @@ class LoggingConfig extends React.Component {
   render() {
     return (
       <div>
-         <LogLevelComponent label="Level of messages written by Sync engines"
-                            prefs={ENGINE_PREFS}/>
+        <LogLevelComponent label="Level of messages written by Sync engines"
+                           prefs={ENGINE_PREFS}/>
 
-         <LogLevelComponent label="Level of messages written to about:sync-logs log files"
-                            prefs={["services.sync.log.appender.file.level"]}/>
+        <LogLevelComponent label="Level of messages written to about:sync-logs log files"
+                           prefs={["services.sync.log.appender.file.level"]}/>
 
-         <LogLevelComponent label="Level of messages written to dump - useful primarily for developers"
-                            prefs={["services.sync.log.appender.dump"]}/>
+        <LogLevelComponent label="Level of messages written to dump - useful primarily for developers"
+                           prefs={["services.sync.log.appender.dump"]}/>
 
-         <NumDaysInput label="Number of days to keep log files for:"
-                       pref="services.sync.log.appender.file.maxErrorAge"/>
+        <NumDaysInput label="Number of days to keep log files for:"
+                      pref="services.sync.log.appender.file.maxErrorAge"/>
 
-         <PrefCheckbox label="Create log files even on success?"
-                       pref="services.sync.log.appender.file.logOnSuccess"/>
+        <div>
+          <PrefCheckbox label="Create log files even on success?"
+                        pref="services.sync.log.appender.file.logOnSuccess"/>
+        </div>
 
-         <PrefCheckbox label="Remember these values when Sync is reconfigured?"
-                       pref="extensions.aboutsync.applyOnStartOver"/>
+        <div>
+          <PrefCheckbox label="Remember these values when Sync is reconfigured?"
+                        pref="extensions.aboutsync.applyOnStartOver"/>
+        </div>
       </div>
     );
   }
@@ -435,4 +441,4 @@ function PrefsComponent() {
   );
 }
 
-module.exports = { PrefsComponent };
+module.exports = { PrefsComponent, PrefCheckbox };
