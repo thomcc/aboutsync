@@ -5,7 +5,7 @@ const ReactDOM = require("react-dom");
 const DOM = require("react-dom-factories");
 const { TabView, TabPanel } = require("./TabView");
 
-const { Fetching, ObjectInspector, ErrorDisplay, arrayCloneWithoutJank } = require("./common");
+const { Fetching, ObjectInspector, ErrorDisplay, arrayCloneWithoutJank, importLocal } = require("./common");
 const { TableInspector } = require("./AboutSyncTableInspector");
 const { AboutSyncRecordEditor } = require("./AboutSyncRecordEditor");
 const { ProviderState } = require("./provider");
@@ -13,55 +13,11 @@ const { PlacesSqlView, promiseSql } = require("./PlacesSqlView");
 
 const validation = require("./validation");
 
-Cu.import("resource://gre/modules/Services.jsm");
-Cu.import("resource://gre/modules/FxAccounts.jsm");
-Cu.import("resource://services-sync/main.js");
-Cu.import("resource://gre/modules/PlacesUtils.jsm");
-Cu.import("resource://services-sync/util.js");
-Cu.import("resource://services-sync/resource.js");
-
-class AccountInfo extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { user: null, profile: null }
-  }
-
-  componentDidMount() {
-    fxAccounts.getSignedInUser().then(data => {
-      this.setState({ user: data });
-      if (data) {
-        fxAccounts.getSignedInUserProfile().then(profile => {
-          this.setState({ profile });
-        });
-      }
-    }).catch(Cu.reportError);
-  }
-
-  render() {
-    let user = this.state.user;
-    if (!user) {
-      return <Fetching label="Fetching account info..."/>;
-    }
-    return (
-      <div>
-        <div className="profileContainer">
-          <div className="avatarContainer">
-            {this.state.profile &&
-              <img src={this.state.profile.avatar} className="avatar"/>}
-          </div>
-          <div className="userInfoContainer">
-            {this.state.profile && <p>{this.state.profile.displayName}</p>}
-          </div>
-        </div>
-        {this.state.profile &&
-          <ObjectInspector name="Full Profile"
-                           data={this.state.profile}
-                           expandLevel={0}/>}
-        <p>{user.email}</p>
-      </div>
-    );
-  }
-}
+const { Weave } = importLocal("resource://services-sync/main.js");
+const { AddonValidator } = importLocal("resource://services-sync/engines/addons.js");
+const { PasswordValidator } = importLocal("resource://services-sync/engines/passwords.js");
+const { FormValidator } = importLocal("resource://services-sync/engines/forms.js");
+const { BookmarkValidator } = importLocal("resource://services-sync/bookmark_validator.js");
 
 // takes an array of objects who have no real properties but have a bunch of
 // getters on their prototypes, and returns an array of new objects that contain
@@ -125,12 +81,12 @@ async function basicBuilder(validator, serverRecords, expandData = false, priori
 // promise that resolves with an object with key=name, value=react component.
 const collectionComponentBuilders = {
   async addons(provider, serverRecords) {
-    Cu.import("resource://services-sync/engines/addons.js");
     let validator = new AddonValidator(Weave.Service.engineManager.get("addons"));
     return basicBuilder(validator, serverRecords, true, ["syncGUID", "id"]);
   },
 
   async clients(provider, serverRecords) {
+    const fxAccounts = importLocal("resource://gre/modules/FxAccounts.jsm").fxAccounts;
     let fxaDevices = await fxAccounts.getDeviceList();
     fxaDevices = JSON.parse(JSON.stringify(fxaDevices));
     return {
@@ -139,17 +95,14 @@ const collectionComponentBuilders = {
   },
 
   async passwords(provider, serverRecords) {
-    Cu.import("resource://services-sync/engines/passwords.js");
     return basicBuilder(new PasswordValidator(), serverRecords, true, ["guid", "id"]);
   },
 
   async forms(provider, serverRecords) {
-    Cu.import("resource://services-sync/engines/forms.js");
     return basicBuilder(new FormValidator(), serverRecords, false);
   },
 
   async bookmarks(provider, serverRecords) {
-    Cu.import("resource://services-sync/bookmark_validator.js");
     let clientTree = await provider.promiseBookmarksTree();
     let validator = new BookmarkValidator();
     let validationResults = await validator.compareServerWithClient(serverRecords, clientTree);
@@ -368,6 +321,5 @@ class CollectionsViewer extends React.Component {
 }
 
 module.exports = {
-  AccountInfo,
   CollectionsViewer,
 };

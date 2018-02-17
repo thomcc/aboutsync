@@ -14,6 +14,7 @@ function Fetching({label}) {
 // A tab-smart "anchor"
 class InternalAnchor extends React.Component {
   onClick(event) {
+    const Ci = Components.interfaces;
     // Get the chrome (ie, browser) window hosting this content.
     let chromeWindow = window
          .QueryInterface(Ci.nsIInterfaceRequestor)
@@ -138,12 +139,25 @@ async function arrayCloneWithoutJank(arr) {
   return result;
 }
 
+// Cu.import is completely global for us (one file imports, all files see it)
+function importLocal(path) {
+  const object = {};
+  try {
+    Components.utils.import(path, object);
+  } catch (e) {
+    console.error("Failed to import " + path, e);
+    return null;
+  }
+  return object;
+}
+
 module.exports = {
   Fetching,
   InternalAnchor,
   ObjectInspector,
   ErrorDisplay,
   jankYielder,
+  importLocal,
   arrayCloneWithoutJank,
   valueLookupTable,
 };

@@ -1,11 +1,11 @@
-
+const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 const React = require("react");
 
-const { ErrorDisplay, valueLookupTable } = require("./common");
+const { ErrorDisplay, valueLookupTable, importLocal } = require("./common");
 const { TableInspector } = require("./AboutSyncTableInspector");
 
-Cu.import("resource://gre/modules/Services.jsm");
-Cu.import("resource://gre/modules/PlacesUtils.jsm");
+const { Services } = importLocal("resource://gre/modules/Services.jsm");
+const { PlacesUtils } = importLocal("resource://gre/modules/PlacesUtils.jsm");
 
 const sqlQueryPref = "extensions.aboutsync.lastQuery";
 
@@ -15,7 +15,7 @@ function getLastQuery() {
 }
 
 function updateLastQuery(query) {
-  Services.prefs.setCharPref(sqlQueryPref, query);
+  Services.prefs.setStringPref(sqlQueryPref, query);
 }
 
 function getSqlColumnNames(sql) {

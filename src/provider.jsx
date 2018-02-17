@@ -3,10 +3,14 @@
 // Data can be provided by Sync itself, or by a JSON file.
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
+const { importLocal } = require("./common");
 
-Cu.import("resource://services-sync/record.js");
-Cu.import("resource://gre/modules/osfile.jsm");
-Cu.import("resource://gre/modules/PlacesUtils.jsm");
+const { Weave } = importLocal("resource://services-sync/main.js");
+
+const { CryptoWrapper, Collection } = importLocal("resource://services-sync/record.js");
+const { OS } = importLocal("resource://gre/modules/osfile.jsm");
+const { PlacesUtils } = importLocal("resource://gre/modules/PlacesUtils.jsm");
+const { Services } = importLocal("resource://gre/modules/Services.jsm");
 
 const React = require("react");
 

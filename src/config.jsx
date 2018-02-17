@@ -2,15 +2,16 @@
 // offered by this addon.
 
 const React = require("react");
-const { Fetching, InternalAnchor } = require("./common");
+const { Fetching, InternalAnchor, importLocal } = require("./common");
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
-Cu.import("resource://gre/modules/Log.jsm");
-Cu.import("resource://gre/modules/Preferences.jsm");
-Cu.import("resource://gre/modules/FileUtils.jsm");
-Cu.import("resource://gre/modules/osfile.jsm"); // For "OS"
-Cu.import("resource://gre/modules/Downloads.jsm");
+const { Log } = importLocal("resource://gre/modules/Log.jsm");
+const { Preferences } = importLocal("resource://gre/modules/Preferences.jsm");
+const { FileUtils } = importLocal("resource://gre/modules/FileUtils.jsm");
+const { OS } = importLocal("resource://gre/modules/osfile.jsm");
+const { Downloads } = importLocal("resource://gre/modules/Downloads.jsm");
+const { Services } = importLocal("resource://gre/modules/Services.jsm");
 
 // For our "Sync Preferences" support.
 // A "log level" <select> element.
@@ -194,7 +195,8 @@ class LogFilesComponent extends React.Component {
   // etc.
 
   // But for now it is just a simple .zip file of every log file we could find.
-  async downloadZipFile() {
+  async downloadZipFile(event) {
+    event.preventDefault();
     let logFilenames = [];
     let zipWriter = Cc["@mozilla.org/zipwriter;1"].createInstance(Ci.nsIZipWriter);
 
@@ -333,7 +335,8 @@ class LogFilesComponent extends React.Component {
     await this.downloadFile(OS.Path.toFileURI(tmpFileInfo.path), "aboutsync-combined-log.txt");
   }
 
-  async downloadCombined() {
+  async downloadCombined(event) {
+    event.preventDefault();
     try {
       await this._downloadCombined();
     } catch (e) {
@@ -381,7 +384,6 @@ class LogFilesComponent extends React.Component {
     }
     // summarize them - by default, they will all be errors.
     return (
-      // We probably don't actually need to use a Fragment here.
       <div>
         <span>{logFiles.numErrors} error logs, {logFiles.entries.length} in total - </span>
         <InternalAnchor href="about:sync-log">view them locally</InternalAnchor>

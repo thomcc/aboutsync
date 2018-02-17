@@ -5,8 +5,13 @@ const ReactDOM = require("react-dom");
 
 const { PrefsComponent } = require("./config");
 const { ProviderState, ProviderInfo } = require("./provider");
-const { AccountInfo, CollectionsViewer } = require("./components");
-const { InternalAnchor, ErrorDisplay, Fetching } = require("./common");
+const { CollectionsViewer } = require("./CollectionsViewer");
+const { InternalAnchor, ErrorDisplay, Fetching, importLocal } = require("./common");
+const { AccountInfo } = require("./AccountInfo");
+
+const { Services } = importLocal("resource://gre/modules/Services.jsm");
+const { fxAccounts } = importLocal("resource://gre/modules/FxAccounts.jsm");
+const { Weave } = importLocal("resource://services-sync/main.js");
 
 const weaveService = Cc["@mozilla.org/weave/service;1"]
                      .getService(Ci.nsISupports)
@@ -52,7 +57,7 @@ class AboutSyncHeader extends React.Component {
       <div>
         <p className="section-heading">Firefox Account</p>
         <div id="account-info">
-          <AccountInfo/>
+          <AccountInfo fxAccounts={fxAccounts}/>
         </div>
       </div>
     );
