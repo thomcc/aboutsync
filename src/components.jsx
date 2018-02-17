@@ -3,7 +3,7 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 const React = require("react");
 const ReactDOM = require("react-dom");
 const DOM = require("react-dom-factories");
-const ReactSimpleTabs = require("react-simpletabs");
+const { TabView, TabPanel } = require("./TabView");
 
 const { Fetching, ObjectInspector, ErrorDisplay, arrayCloneWithoutJank } = require("./common");
 const { TableInspector } = require("./AboutSyncTableInspector");
@@ -208,7 +208,7 @@ class CollectionViewer extends React.Component {
   }
 
   componentDidCatch(error) {
-    console.error("About Sync: Failed to fetch collection", err);
+    console.error("About Sync: Failed to fetch collection", error);
     this.setState({ error });
   }
 
@@ -241,9 +241,7 @@ class CollectionViewer extends React.Component {
       return [];
     }
     return Object.entries(this.state.additional).map(([title, component], i) => (
-      <ReactSimpleTabs.Panel title={title} key={title + "@" + i}>
-        {component}
-      </ReactSimpleTabs.Panel>
+      <TabPanel name={title} key={title + "@" + i}>{component}</TabPanel>
     ));
   }
 
@@ -271,39 +269,41 @@ class CollectionViewer extends React.Component {
   }
 
   renderTabs() {
-    // Array is required since ReactSimpleTabs is buggy (it assumes a lot of
-    // unsafe things about props.children).
-    return [
-      <ReactSimpleTabs.Panel title="Summary" key="summary">
-        {this.renderSummary()}
-      </ReactSimpleTabs.Panel>,
+    let engine = Weave.Service.engineManager.get(this.props.info.name);
+    return (
+      <TabView>
+        <TabPanel name="Summary" key="summary">
+          {this.renderSummary()}
+        </TabPanel>
 
-      <ReactSimpleTabs.Panel title="Response" key="response">
-        <ObjectInspector name="Response" data={this.state.response}/>
-      </ReactSimpleTabs.Panel>,
+        <TabPanel name="Response" key="response">
+          <ObjectInspector name="Response" data={this.state.response}/>
+        </TabPanel>
 
-      <ReactSimpleTabs.Panel title="Records (table)" key="records-table">
-        <TableInspector data={this.state.records}/>
-      </ReactSimpleTabs.Panel>,
+        <TabPanel name="Records (table)" key="records-table">
+          <TableInspector data={this.state.records}/>
+        </TabPanel>
 
-      <ReactSimpleTabs.Panel title="Records (object)" key="records-object">
-        <ObjectInspector name="Records" data={this.state.records}/>
-      </ReactSimpleTabs.Panel>,
+        <TabPanel name="Records (object)" key="records-object">
+          <ObjectInspector name="Records" data={this.state.records}/>
+        </TabPanel>
 
-      this.props.provider.isLocal && (
-        <ReactSimpleTabs.Panel title="Record Editor (server)" key="record-editor">
-          <AboutSyncRecordEditor
-            engine={Weave.Service.engineManager.get(this.props.info.name)}
-            records={this.state.originalRecords}/>
-        </ReactSimpleTabs.Panel>
-      ),
-      ...this.renderAdditionalTabs()
-    ];
+        {this.props.provider.isLocal && engine && (
+          <TabPanel name="Record Editor (server)" key="record-editor">
+            <AboutSyncRecordEditor
+              name={this.props.info.name}
+              engine={engine}
+              records={this.state.originalRecords}/>
+          </TabPanel>
+        )}
+        {this.renderAdditionalTabs()}
+      </TabView>
+    );
   }
 
   render() {
     let body = this.state.records
-             ? <ReactSimpleTabs>{this.renderTabs()}</ReactSimpleTabs>
+             ? this.renderTabs()
              : <Fetching label="Fetching records..."/>;
     return (
       <div className="collection">
@@ -336,6 +336,7 @@ class CollectionsViewer extends React.Component {
       return;
     }
     provider.promiseCollectionInfo().then(info => {
+      console.log("Got info: ", info);
       this.setState({ info, error: null });
     }).catch(err => {
       console.error("Collection viewer failed", err);

@@ -124,23 +124,27 @@ html {
 }
 
 .tabs-menu {
-  display: table;
+  position: relative;
+  display: block;
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
 .tabs-menu-item {
-  float: left;
+  display: inline-block;
   font-size: 70%;
 }
 
 .tabs-menu-item a {
   display: block;
-  padding: 0 40px;
+  padding: 0 20px;
   border-bottom: 0;
   color: #A9A9A9;
   cursor: pointer;
+  text-align: center;
+  max-width: 15em;
+  text-decoration: none;
 }
 
 .tabs-menu-item:not(.is-active) a:hover {
@@ -152,6 +156,10 @@ html {
   border: 1px solid #DDD;
   border-bottom: 0;
   color: #333;
+}
+
+.tab-panel {
+  padding: 5px;
 }
 
 .table-inspector {

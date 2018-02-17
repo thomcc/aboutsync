@@ -48,7 +48,7 @@ function defaultCellFormatter(cellValue, isExpanded, columnName, owningRow, sens
   if (isExpanded) {
     return <ObjectInspector data={cellValue}/>;
   }
-  if (sensitive.has(columnName) >= 0) {
+  if (sensitive.indexOf(columnName) >= 0) {
     return "**** hidden unless expanded ****";
   }
   let cellString = "";

@@ -17,13 +17,12 @@
     "url": "https://github.com/mhammond/aboutsync/issues"
   },
   "dependencies": {
+    "classnames": "^2.2.5",
     "prop-types": "^15.6.0",
     "react": "^16.2.0",
     "react-dom": "^16.2.0",
     "react-dom-factories": "^1.0.2",
-    "react-inspector": "^2.2.2",
-    "react-simpletabs": "github:pedronauck/react-simpletabs#92d048f",
-    "react-treeview": "^0.4.7"
+    "react-inspector": "^2.2.2"
   },
   "devDependencies": {
     "babel-core": "^6.26.0",

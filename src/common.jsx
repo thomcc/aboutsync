@@ -113,7 +113,7 @@ class ErrorDisplay extends React.Component {
 function jankYielder(maxTimeSliceMS = 10) {
   let lastYield = performance.now();
   return async () => {
-    if (lastYield - performance.now() >= maxTimeSliceMS) {
+    if (performance.now() - lastYield >= maxTimeSliceMS) {
       await new Promise(requestAnimationFrame);
       lastYield = performance.now();
     }
@@ -127,7 +127,7 @@ async function arrayCloneWithoutJank(arr) {
   let result = [];
   const yielder = await jankYielder();
   // Chunking made cloning (100k records of) history take waaaay less time.
-  const chunkSize = 1000;
+  const chunkSize = 100;
   for (let i = 0; i < arr.length; i += chunkSize) {
     let chunkEnd = Math.min(arr.length, i + chunkSize);
     for (let j = i; j < chunkEnd; ++j) {

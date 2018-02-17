@@ -36,20 +36,6 @@ function whenSyncReady() {
   });
 }
 
-// const LOGIN_STATE = {
-//   UNKNOWN: "UNKNOWN"
-//   LOGGED_IN: "LOGGED_IN",
-//   LOGGED_OUT: "LOGGED_OUT",
-// };
-
-function EnableIf(props) {
-  if (!this.props.enabled) {
-    return null;
-  }
-  let wrapperType = this.props.wrapperType || "div";
-  return <wrapperType {...props}>{this.props.children}</wrapperType>;
-}
-
 class AboutSyncHeader extends React.Component {
   renderAccountInfo() {
     if (!this.props.ready) {
@@ -150,43 +136,6 @@ class AboutSyncComponent extends React.Component {
     );
   }
 }
-
-
-// let providerElement;
-
-// document.getElementById("refresh-provider").addEventListener("click", () => {
-//   providerElement.setState({ provider: ProviderState.newProvider() })
-// });
-
-// function render() {
-//   // I have no idea what I'm doing re element attribute states :)
-//   for (let elt of document.querySelectorAll(".state-container")) {
-//     elt.setAttribute("data-logged-in", "unknown");
-//   }
-//   whenSyncReady().then(loggedIn => {
-//     for (let elt of document.querySelectorAll(".state-container")) {
-//       elt.setAttribute("data-logged-in", loggedIn);
-//     }
-
-//     // Render the nodes that exist in any state.
-//     ReactDOM.render(React.createElement(PrefsComponent, null),
-//                     document.getElementById("prefs")
-//     );
-
-//     ReactDOM.render(<InternalAnchor href="about:preferences#sync"/>,
-//                     document.getElementById("opensyncprefs"));
-
-//     if (!loggedIn) {
-//       return;
-//     }
-
-//     // render the nodes that require us to be logged in.
-//     ReactDOM.render(<AccountInfo/>, document.getElementById("account-info"));
-
-//     providerElement = ReactDOM.render(<ProviderInfo/>, document.getElementById("provider-info"));
-
-//   }).catch(err => console.error("render() failed", err));
-// }
 
 function render() {
   ReactDOM.render(<AboutSyncComponent/>, document.getElementById("main"));

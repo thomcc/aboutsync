@@ -1,5 +1,7 @@
 "use strict";
 const React = require("react");
+const PropTypes = require("prop-types");
+const { ErrorDisplay } = require("./common");
 
 function shortenText(x, maxLen) {
   return x.length >= maxLen ? x.slice(0, maxLen - 1) + "…" : x;
@@ -25,6 +27,14 @@ function describeRecord(coll, record) {
 // Used for the "New Record" menu option. Should never collide with a real record.
 const PhonyNewRecordID = "new record";
 class AboutSyncRecordEditor extends React.Component {
+
+  static get propTypes() {
+    return {
+      engine: PropTypes.object.isRequired,
+      records: PropTypes.array.isRequired,
+    };
+  }
+
   constructor(props) {
     super(props);
     this.state = { selected: PhonyNewRecordID, text: "" };
@@ -202,6 +212,7 @@ class AboutSyncRecordEditor extends React.Component {
             </select>
           </label>
         </div>
+
         <div className="record-editor">
           <textarea value={this.state.text}
                     rows={Math.max(10, this.state.text.split("\n").length + 1)}
@@ -219,6 +230,10 @@ class AboutSyncRecordEditor extends React.Component {
             </button>
           </div>
         </div>
+        <ErrorDisplay error={this.state.error}
+                      onClose={() => this.setState({error: null})}
+                      prefix="Error: "
+                      formatError={e => this.renderErrorMsg(e)}/>
         {this.state.error && (
           <div className="error-message">
             <button className="close-error"
