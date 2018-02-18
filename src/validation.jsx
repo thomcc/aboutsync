@@ -4,14 +4,20 @@ const React = require("react");
 const { ObjectInspector } = require("./common");
 const { TableInspector } = require("./AboutSyncTableInspector");
 
-function ProblemList({desc, ids, map}) {
+function ProblemList({desc, ids, map, useTable = ids && ids.length > 10}) {
   if (!ids || !ids.length) {
     return null;
   }
   return (
-    <div>
+    <div className="problem-list">
       <p>{desc}</p>
-      <TableInspector data={ids.map(id => map.get(id))}/>
+      {useTable ? (
+        <TableInspector data={ids.map(id => map.get(id))}/>
+      ) : ids.map(id => (
+        <div className="problem-list-item" key={id}>
+          <ObjectInspector name={id} data={map.get(id)} expandLevel={0}/>
+        </div>
+      ))}
     </div>
   );
 }
@@ -34,6 +40,73 @@ function IdDesc({id, clientMap, serverMap}) {
 
   return (
     <span className="inline-id" title={desc}>{id}</span>
+  );
+}
+
+// View for differences/serverDifferences.
+function DifferenceView(props) {
+  const {id, fields, isStructural} = props;
+  return (
+    <div>
+      <p>Record <IdDesc id={id} {...props}/> has {isStructural ? "structural " : " "}
+      differences between local and server copies.</p>
+      <ul className="validation-diff-list">
+        {fields.map(field => {
+          let clientRecord = props.clientMap.get(id);
+          let serverRecord = props.serverMap.get(id);
+          let clientValue = clientRecord && clientRecord[field];
+          let serverValue = serverRecord && serverRecord[field];
+          let clientElem, serverElem;
+          let titles = true;
+          // Not great that it's hardcoded, but these are common and worth a
+          // special display
+          if (field === "parentid") {
+            clientElem = <IdDesc {...props} id={clientValue}/>
+            serverElem = <IdDesc {...props} id={serverValue}/>
+          } else if (field === "childGUIDs") {
+            clientElem = <div>Client: [{
+              clientValue.map((id, i) =>
+                <span key={id}>
+                  {i ? ", " : ""}
+                  <IdDesc {...props} id={id}/>
+                </span>
+              )
+            }]</div>;
+            serverElem = <div>Server: [{
+              serverValue.map((id, i) =>
+                <span key={id}>
+                  {i ? ", " : ""}
+                  <IdDesc {...props} id={id}/>
+                </span>
+              )
+            }]</div>;
+            titles = false;
+          } else if (typeof clientValue == "object" || typeof serverValue == "object") {
+            clientElem = <ObjectInspector expandLevel={0}
+                                          name={`Client.${field}`}
+                                          data={clientValue}
+                                          key="client"/>;
+            serverElem = <ObjectInspector expandLevel={0}
+                                          name={`Server.${field}`}
+                                          data={serverValue}
+                                          key="server"/>;
+            titles = false;
+          } else {
+            clientElem = clientValue;
+            serverElem = serverValue;
+          }
+          return (
+            <li key={field} className="diff-entry">
+              <span className="diff-field">"{field}"</span>: {titles ? (
+                <span>Client has {clientElem}, Server has {serverElem}</span>
+              ) : (
+                [clientElem, serverElem]
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -81,16 +154,7 @@ const DefaultHandlers = {
 
   differences: props => (
     props.problems.differences.map(({id, differences}) => (
-      <div key={id}>
-        <p>Record <IdDesc id={dupeId} {...props}/> has differences between local and server copies.</p>
-        <TableInspector data={differences.map(field => {
-          return {
-            field,
-            local: props.clientMap.get(id)[field],
-            server: props.serverMap.get(id)[field]
-          }
-        })}/>
-      </div>
+      <DifferenceView {...props} fields={differences} id={id}/>
     ))
   ),
 };
@@ -116,7 +180,7 @@ class ResultDisplay extends React.Component {
         let HandlerClass = this.props.handlers[name];
         rendered.push(<HandlerClass key={name} {...this.props}/>);
       } else {
-        unknown.push({ name, count, data: problems[name] });
+        unknown.push({ name, count, data: this.props.problems[name] });
       }
     }
     if (rendered.length == 0 && unknown.length == 0) {
@@ -157,6 +221,7 @@ const BookmarkHandlers = Object.assign({}, DefaultHandlers, {
   rootOnServer: props => (
     <p>The root is present on the server, but should not be.</p>
   ),
+
   missingChildren: props => (
     props.problems.missingChildren.map(({parent, child}) => (
       <div key={`${parent}:${child}`}>
@@ -164,14 +229,18 @@ const BookmarkHandlers = Object.assign({}, DefaultHandlers, {
           Server record references child <IdDesc id={child} {...props}/> which
           doesn't exist on the server.
         </p>
-        <ObjectInspector name="parent" data={props.serverMap.get(parent)}/>
+        <ObjectInspector name="Parent" data={props.serverMap.get(parent)} expandLevel={0}/>
         {props.clientMap.get(child) && [
           <p key="client-child-desc">A record with this ID exists on the client:</p>,
-          <ObjectInspector key="client-child-inspector" data={props.clientMap.get(child)}/>
+          <ObjectInspector key="client-child-inspector"
+                           name="Client"
+                           data={props.clientMap.get(child)}
+                           expandLevel={0}/>
         ]}
       </div>
     ))
   ),
+
   multipleParents: props => (
     props.problems.multipleParents.map(({parents, child}) => (
       <div key={child}>
@@ -181,6 +250,7 @@ const BookmarkHandlers = Object.assign({}, DefaultHandlers, {
       </div>
     ))
   ),
+
   parentChildMismatches: props => (
     props.problems.parentChildMismatches.map(({parent, child}) => (
       <div key={`${parent}:${child}`}>
@@ -188,8 +258,8 @@ const BookmarkHandlers = Object.assign({}, DefaultHandlers, {
           Server-side parent/child mismatch for parent <IdDesc id={parent} {...props}/> (first)
           and child <IdDesc id={child} {...props}/> (second).
         </p>
-        <ObjectInspector name="Parent" data={props.serverMap.get(parent)}/>
-        <ObjectInspector name="Child" data={props.serverMap.get(child)}/>
+        <ObjectInspector name="Parent" data={props.serverMap.get(parent)} expandLevel={0}/>
+        <ObjectInspector name="Child" data={props.serverMap.get(child)} expandLevel={0}/>
       </div>
     ))
   ),
@@ -224,7 +294,7 @@ const BookmarkHandlers = Object.assign({}, DefaultHandlers, {
   ),
 
   deletedParents: props => (
-    <ProblemList desc="The following server records have deleted parents not deleted but had a deleted parent."
+    <ProblemList desc="The following server records have deleted parents, but are not deleted themselves."
                  ids={props.problems.deletedParents}
                  map={props.serverMap}/>
   ),
@@ -273,19 +343,13 @@ const BookmarkHandlers = Object.assign({}, DefaultHandlers, {
 
   differences: props => (
     props.problems.differences.map(({id, differences}) => (
-      <div key={id}>
-        <p>Record <IdDesc id={dupeId} {...props}/> has differences between local and server copies.</p>
-        <TableInspector data={differences.map(field => bookmarkDifference(id, field, clientMap, serverMap))}/>
-      </div>
+      <DifferenceView {...props} key={id} id={id} fields={differences}/>
     ))
   ),
 
   structuralDifferences: props => (
     props.problems.structuralDifferences.map(({id, differences}) => (
-      <div key={id}>
-        <p>Record <IdDesc id={dupeId} {...props}/> has differences between local and server copies.</p>
-        <TableInspector data={differences.map(field => bookmarkDifference(id, field, clientMap, serverMap))}/>
-      </div>
+      <DifferenceView {...props} key={id} id={id} fields={differences} isStructural={true}/>
     ))
   ),
 });

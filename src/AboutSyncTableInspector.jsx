@@ -46,7 +46,7 @@ function doSortBy(aVal, bVal) {
 
 function defaultCellFormatter(cellValue, isExpanded, columnName, owningRow, sensitive) {
   if (isExpanded) {
-    return <ObjectInspector data={cellValue}/>;
+    return <ObjectInspector expandLevel={0} data={cellValue}/>;
   }
   if (sensitive.indexOf(columnName) >= 0) {
     return "**** hidden unless expanded ****";

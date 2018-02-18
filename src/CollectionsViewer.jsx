@@ -71,7 +71,7 @@ async function basicBuilder(validator, serverRecords, expandData = false, priori
                                 problems={validationResults.problemData}/>
     ),
     "Raw validation results": (
-      <ObjectInspector name="Validation" data={validationResults}/>
+      <ObjectInspector name="Validation" data={validationResults} expandLevel={1}/>
     ),
     "Client Records": <TableInspector data={fullClientData}/>,
   };
@@ -96,7 +96,7 @@ const collectionComponentBuilders = {
     let fxaDevices = await fxAccounts.getDeviceList();
     fxaDevices = JSON.parse(JSON.stringify(fxaDevices));
     return {
-      "FxA Devices": <ObjectInspector name="Devices" data={fxaDevices}/>
+      "FxA Devices": <ObjectInspector name="Devices" data={fxaDevices} expandLevel={1}/>
     };
   },
 
@@ -150,10 +150,10 @@ const collectionComponentBuilders = {
                                   handlers={validation.BookmarkHandlers}/>
       ),
       "Raw validation results": (
-        <ObjectInspector name="Validation" data={validationResults}/>
+        <ObjectInspector name="Validation" data={validationResults} expandLevel={1}/>
       ),
       "Client Records": <TableInspector data={validationResults.clientRecords}/>,
-      "Client Tree": <ObjectInspector name="root" data={rawTree}/>,
+      "Client Tree": <ObjectInspector name="root" data={rawTree} expandLevel={1}/>,
       "SQL": <PlacesSqlView/>,
     };
   },
@@ -244,7 +244,7 @@ class CollectionViewer extends React.Component {
         </TabPanel>
 
         <TabPanel name="Response" key="response">
-          <ObjectInspector name="Response" data={this.state.response}/>
+          <ObjectInspector name="Response" data={this.state.response} expandLevel={1}/>
         </TabPanel>
 
         <TabPanel name="Records (table)" key="records-table">
@@ -252,7 +252,7 @@ class CollectionViewer extends React.Component {
         </TabPanel>
 
         <TabPanel name="Records (object)" key="records-object">
-          <ObjectInspector name="Records" data={this.state.records}/>
+          <ObjectInspector name="Records" data={this.state.records} expandLevel={1}/>
         </TabPanel>
 
         {this.props.provider.isLocal && engine && (

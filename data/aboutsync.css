@@ -98,6 +98,7 @@ html {
   border-bottom: 1px;
   border-bottom-color: green;
   border-bottom-style: dotted;
+  font-family: monospace;
 }
 /* =============================================================================
   Bookmark tree view
@@ -282,8 +283,14 @@ html {
   font-weight: bold;
   color: rgb(128, 0, 0);
   cursor: pointer;
+  top: 2px;
+  padding: 0;
 }
 
 .error-message p {
   margin: 0;
+}
+
+.validation-diff-list .diff-entry {
+  font-family: monospace;
 }

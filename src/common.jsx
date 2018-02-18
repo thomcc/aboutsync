@@ -49,9 +49,10 @@ function ObjectInspector(props) {
   const theme = Object.assign({}, ReactInspector.chromeLight, {
     BASE_BACKGROUND_COLOR: "transparent"
   });
-  let propsWithDefaults = Object.assign({ theme, expandLevel: 1 }, props);
+  let propsWithDefaults = Object.assign({ theme }, props);
   return <ReactInspector.ObjectInspector {...propsWithDefaults}/>;
 }
+
 
 function valueLookupTable(o) {
   return new Map(Object.entries(o).map(([k, v]) => [v, k]));
