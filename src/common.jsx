@@ -41,17 +41,34 @@ class InternalAnchor extends React.Component {
   }
 }
 
+// a custom node renderer for ReactInspector we use by default.
+function aboutSyncNodeRenderer({ depth, name, data, isNonenumerable, expanded }) {
+  if (depth === 0) {
+    // Don't render the object summary if we're expanded, unless there's no given name.
+    if (expanded && name) {
+      return <ReactInspector.ObjectName name={name} />;
+    } else {
+      return <ReactInspector.ObjectRootLabel name={name} data={data} />;
+    }
+  } else {
+    return <ReactInspector.ObjectLabel name={name} data={data} isNonenumerable={isNonenumerable} />
+  }
+};
+
 // Wrapper around ReactInspector.ObjectInspector that sets some common props
-// (theme, expandLevel)
 function ObjectInspector(props) {
+  // We let React do the defaulting for us using defaultProps.
+  return <ReactInspector.ObjectInspector {...props}/>;
+}
+
+ObjectInspector.defaultProps = {
   // This lib isn't styled with CSS, so we have to go through this (the default
   // background is white, which looks bad).
-  const theme = Object.assign({}, ReactInspector.chromeLight, {
+  theme: Object.assign({}, ReactInspector.chromeLight, {
     BASE_BACKGROUND_COLOR: "transparent"
-  });
-  let propsWithDefaults = Object.assign({ theme }, props);
-  return <ReactInspector.ObjectInspector {...propsWithDefaults}/>;
-}
+  }),
+  nodeRenderer: aboutSyncNodeRenderer
+};
 
 
 function valueLookupTable(o) {

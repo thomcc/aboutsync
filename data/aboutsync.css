@@ -99,6 +99,7 @@ html {
   border-bottom-color: green;
   border-bottom-style: dotted;
   font-family: monospace;
+  cursor: pointer;
 }
 /* =============================================================================
   Bookmark tree view
@@ -274,7 +275,7 @@ html {
   position: relative;
 }
 
-.error-message .close-error {
+ {
   position: absolute;
   right: 5px;
   background: 0;
@@ -285,7 +286,13 @@ html {
   cursor: pointer;
   top: 2px;
   padding: 0;
+  opacity: 0.5;
 }
+
+.error-message .close-error:hover {
+  opacity: 1;
+}
+
 
 .error-message p {
   margin: 0;
@@ -294,3 +301,96 @@ html {
 .validation-diff-list .diff-entry {
   font-family: monospace;
 }
+
+.modal-container,
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.25);
+  z-index: 1000;
+}
+
+.modal-container {
+  z-index: 1001;
+  pointer-events: none;
+}
+
+.modal-wrap {
+  position: relative;
+  width: auto;
+  margin: 5px;
+  pointer-events: none;
+  z-index: 1002;
+
+  width: 80%;
+  max-width: 700px;
+
+  display: flex;
+  flex-direction: column;
+
+  background-color: white;
+  border-radius: 4px;
+  outline: 0;
+
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  overflow-y: auto;
+  max-height: 80%;
+}
+
+.modal-heading {
+  padding: 1em;
+  border-bottom: 1px solid #eee;
+  position: relative;
+}
+
+.modal-heading h4 {
+  font-weight: normal;
+  font-size: 125%;
+  margin: 0 auto;
+}
+
+.modal-close {
+  background-color: transparent;
+  border: 0;
+  font-size: 25px;
+  font-weight: bold;
+  opacity: .5;
+  cursor: pointer;
+  position: absolute;
+  right: 0;
+  top: 0;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  opacity: 1;
+}
+
+.modal-body {
+  position: relative;
+  flex: 1 1 auto;
+  padding: 1rem;
+}
+
+.record-wrap {
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.modal-body .record {
+  display: inline-block;
+  width: 50%;
+  vertical-align: top;
+}
+

@@ -3,6 +3,7 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 const React = require("react");
 const { ObjectInspector } = require("./common");
 const { TableInspector } = require("./AboutSyncTableInspector");
+const { Modal } = require("./Modal");
 
 function ProblemList({desc, ids, map, useTable = ids && ids.length > 10}) {
   if (!ids || !ids.length) {
@@ -22,25 +23,71 @@ function ProblemList({desc, ids, map, useTable = ids && ids.length > 10}) {
   );
 }
 
-function IdDesc({id, clientMap, serverMap}) {
-  let descs = [];
-  let childItem = clientMap.get(id);
-  if (childItem) {
-    descs.push(`Exists locally with title "${childItem.title}"`);
-  } else {
-    descs.push("Does not exist locally");
+class IdDesc extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { modalOpen: false };
   }
-  let serverItem = serverMap.get(id);
-  if (serverItem) {
-    descs.push(`Exists on the server with title "${serverItem.title}"`);
-  } else {
-    descs.push("Does not exist on the server");
-  }
-  let desc = descs.join("\n");
 
-  return (
-    <span className="inline-id" title={desc}>{id}</span>
-  );
+  renderModal() {
+    const title = <span>
+      Record <code className="record-id">{this.props.id}</code>
+    </span>;
+    return (
+      <Modal className="records-modal"
+             onClose={() => this.setModal(false)}
+             open={true}
+             title={title}>
+        <div className="records-wrap">
+          <div className="record">
+            <ObjectInspector name="Server Record"
+                             data={this.props.serverMap.get(this.props.id)}
+                             expandLevel={1}/>
+          </div>
+          <div className="record">
+            <ObjectInspector name="Client Record"
+                             data={this.props.clientMap.get(this.props.id)}
+                             expandLevel={1}/>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  setModal(modalOpen) {
+    console.error("setState", modalOpen)
+    this.setState({ modalOpen: modalOpen });
+  }
+
+  buildTooltip() {
+    let descs = [];
+    let childItem = this.props.clientMap.get(this.props.id);
+    if (childItem) {
+      descs.push(`Exists locally with title "${childItem.title}"`);
+    } else {
+      descs.push("Does not exist locally");
+    }
+    let serverItem = this.props.serverMap.get(this.props.id);
+    if (serverItem) {
+      descs.push(`Exists on the server with title "${serverItem.title}"`);
+    } else {
+      descs.push("Does not exist on the server");
+    }
+    return descs.join("\n");
+  }
+
+  render() {
+    // Modal renders through a Portal into #modal-root, so it's not actually
+    // a child of this span.
+    return (
+      <a className="inline-id"
+         onClick={e => { this.setModal(true); }}
+         title={this.buildTooltip()}>
+        {this.state.modalOpen && this.renderModal()}
+        {this.props.id}
+      </a>
+    );
+  }
 }
 
 // View for differences/serverDifferences.
@@ -64,7 +111,7 @@ function DifferenceView(props) {
             clientElem = <IdDesc {...props} id={clientValue}/>
             serverElem = <IdDesc {...props} id={serverValue}/>
           } else if (field === "childGUIDs") {
-            clientElem = <div>Client: [{
+            clientElem = <div key="client">Client: [{
               clientValue.map((id, i) =>
                 <span key={id}>
                   {i ? ", " : ""}
@@ -72,7 +119,7 @@ function DifferenceView(props) {
                 </span>
               )
             }]</div>;
-            serverElem = <div>Server: [{
+            serverElem = <div key="server">Server: [{
               serverValue.map((id, i) =>
                 <span key={id}>
                   {i ? ", " : ""}
