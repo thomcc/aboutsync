@@ -222,7 +222,12 @@ class ResultDisplay extends React.Component {
       }
       if (this.props.handlers[name]) {
         let HandlerClass = this.props.handlers[name];
-        rendered.push(<HandlerClass key={name} {...this.props}/>);
+        rendered.push(
+          <div key={name} className="validation-problem">
+            <h5>{name}: {count} problems</h5>
+            <HandlerClass {...this.props}/>
+          </div>
+        );
       } else {
         unknown.push({ name, count, data: this.props.problems[name] });
       }

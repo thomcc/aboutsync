@@ -394,3 +394,13 @@ html {
   vertical-align: top;
 }
 
+.validation-problem h5 {
+  font-weight: normal;
+  font-size: 150%;
+  margin: 5px;
+}
+
+.validation-problem {
+  border-bottom: 2px solid #ddd;
+  padding-bottom: 5px;
+}
