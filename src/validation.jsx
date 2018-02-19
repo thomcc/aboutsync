@@ -90,6 +90,17 @@ class IdDesc extends React.Component {
   }
 }
 
+function IdArrayDesc(props) {
+  return <span>[{
+    props.ids.map((id, i) =>
+      <span key={id}>
+        {i ? ", " : ""}
+        <IdDesc {...props} id={id}/>
+      </span>
+    )
+  }]</span>;
+}
+
 // View for differences/serverDifferences.
 function DifferenceView(props) {
   const {id, fields, isStructural} = props;
@@ -111,22 +122,8 @@ function DifferenceView(props) {
             clientElem = <IdDesc {...props} id={clientValue}/>
             serverElem = <IdDesc {...props} id={serverValue}/>
           } else if (field === "childGUIDs") {
-            clientElem = <div key="client">Client: [{
-              clientValue.map((id, i) =>
-                <span key={id}>
-                  {i ? ", " : ""}
-                  <IdDesc {...props} id={id}/>
-                </span>
-              )
-            }]</div>;
-            serverElem = <div key="server">Server: [{
-              serverValue.map((id, i) =>
-                <span key={id}>
-                  {i ? ", " : ""}
-                  <IdDesc {...props} id={id}/>
-                </span>
-              )
-            }]</div>;
+            clientElem = <div key="client">Client: <IdArrayDesc {...props} ids={clientValue}/></div>
+            serverElem = <div key="server">Server: <IdArrayDesc {...props} ids={serverValue}/></div>
             titles = false;
           } else if (typeof clientValue == "object" || typeof serverValue == "object") {
             clientElem = <ObjectInspector expandLevel={0}
@@ -399,6 +396,25 @@ const BookmarkHandlers = Object.assign({}, DefaultHandlers, {
       <DifferenceView {...props} key={id} id={id} fields={differences} isStructural={true}/>
     ))
   ),
+
+  deletedChildren: props => {
+    let byId = new Map();
+    for (let {parent, child} of props.problems.deletedChildren) {
+      let arr = byId.get(parent);
+      if (arr) {
+        arr.push(child)
+      } else {
+        byId.set(parent, [child]);
+      }
+    }
+    return Array.from(byId, ([parent, children]) => (
+      <div key={parent}>
+        The server record <IdDesc {...props} id={parent} /> has {children.length} items
+        in its children array that point to (server-side) tombstones:
+        <div>Deleted children: <IdArrayDesc {...props} ids={children}/></div>
+      </div>
+    ));
+  },
 });
 
 module.exports = {
